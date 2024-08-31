@@ -97,12 +97,12 @@ def stopwatch_logic(draw):
             hours = str(elapsed_time // 3600)
 
             # Calculate minutes
-            minutes = str((elapsed_time - (elapsed_time // 3600) * 3600) // 60)
+            minutes = str((elapsed_time - int(hours) * 3600) // 60)
             if int(minutes) < 10:
                 minutes = '0' + minutes
             
             # Calculate seconds
-            seconds = str(elapsed_time - ((elapsed_time // 3600) * 3600) - ((((elapsed_time // 3600) * 3600) // 60) * 60) // 60)
+            seconds = str(elapsed_time - (int(hours) * 3600) - int(minutes * 60))
             if int(seconds) < 10:
                 seconds = '0' + seconds
             
