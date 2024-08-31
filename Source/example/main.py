@@ -39,7 +39,7 @@ home_page = Image.new("RGB", (240, 240), BLACK)    # REPLACE (240, 240) WITH (di
 stopwatch_page = Image.new("RGB", (240, 240), BLACK)    # REPLACE (240, 240) WITH (disp.width, disp.height)
 
 # Page Logic Variables
-current_page = 'home'
+current_page = 'stopwatch'
 stopwatch_running = True
 stopwatch_runtime = 0
 stopwatch_time_elapsed = 0
@@ -51,9 +51,6 @@ def startup():
     disp.Init()
     disp.clear()
     disp.bl_DutyCycle(50)
-
-def logic_loop():
-    stopwatch_logic()
     
 def default_page():
     # Initialize default page
@@ -69,6 +66,8 @@ def default_page():
 
 def draw_home_page():
     global home_page
+
+    # Prepare default image
     home_page = default_page()
     draw = ImageDraw.Draw(home_page)
 
@@ -77,8 +76,13 @@ def draw_home_page():
     draw.text(((240-w)/2, (228-h)/2), strftime("%H:%M", localtime()), font=HUGE_FONT, fill=WHITE)
 
 def draw_stopwatch_page():
-    global stopwatch_page
+    global stopwatch_page, stopwatch_time_elapsed
 
+    # Run stopwatch data
+    stopwatch_logic()
+
+    # Prepare default image
+    stopwatch_page = default_page()
     draw = ImageDraw.Draw(stopwatch_page)
 
     # Draw header
@@ -86,11 +90,11 @@ def draw_stopwatch_page():
     draw.text(((240-w)/2, (50-h)/2), "Stopwatch", font=SMALL_FONT, fill=WHITE)
 
     # Draw Stopwatch
-    _, _, w, h = draw.textbbox((0, 0), "Stopwatch", font=SMALL_FONT)
-    draw.text(((240-w)/2, (50-h)/2), "Stopwatch", font=SMALL_FONT, fill=WHITE)
+    _, _, w, h = draw.textbbox((0, 0), strftime('%H:%M:%S', stopwatch_time_elapsed), font=SMALL_FONT)
+    draw.text(((240-w)/2, (180-h)/2), strftime('%H:%M:%S', stopwatch_time_elapsed), font=LARGE_FONT, fill=WHITE)
 
 def stopwatch_logic():
-    global current_page, stopwatch_running, stopwatch_runtime, stopwatch_time_elapsed
+    global current_page, stopwatch_running, stopwatch_time_elapsed, stopwatch_initial_time
 
     if current_page == 'stopwatch':
         if stopwatch_running == True:
