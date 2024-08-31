@@ -3,9 +3,7 @@
 #import chardet
 import os
 import sys 
-from time import time, strftime, gmtime, localtime
-import datetime
-import logging
+from time import time, strftime, localtime
 import spidev as SPI
 sys.path.append("..")
 from lib import LCD_1inch28
@@ -42,7 +40,7 @@ stopwatch_page = Image.new("RGB", (240, 240), BLACK)    # REPLACE (240, 240) WIT
 current_page = 'stopwatch'
 stopwatch_running = True
 stopwatch_runtime = 0
-stopwatch_time_elapsed = 0
+stopwatch_time_elapsed = localtime()
 stopwatch_initial_time = localtime()
 
 def startup():
@@ -98,8 +96,9 @@ def stopwatch_logic():
 
     if current_page == 'stopwatch':
         if stopwatch_running == True:
-            stopwatch_time_elapsed = localtime() - stopwatch_initial_time
-            print(stopwatch_time_elapsed)
+            stopwatch_time_elapsed.tm_hour = localtime().tm_hour - stopwatch_initial_time.tm_hour
+            stopwatch_time_elapsed.tm_min = localtime().tm_min - stopwatch_initial_time.tm_min
+            stopwatch_time_elapsed.tm_sec = localtime().tm_sec - stopwatch_initial_time.tm_sec
 
 def display_image():
     global home_page, stopwatch_page
