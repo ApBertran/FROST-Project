@@ -91,10 +91,11 @@ def stopwatch_logic(draw):
     if current_page == 'stopwatch':
         if stopwatch_running == True:
             # Calculate elapsed time
-            stopwatch_output = str(localtime().tm_hour - stopwatch_initial_time.tm_hour) + ':' + str(localtime().tm_min - stopwatch_initial_time.tm_min) + ':' + str(localtime().tm_sec - stopwatch_initial_time.tm_sec)
+            elapsed_time = (localtime().tm_hour - stopwatch_initial_time.tm_hour) * 3600 + (localtime().tm_min - stopwatch_initial_time.tm_min) * 60 + (localtime().tm_sec - stopwatch_initial_time.tm_sec)
+            stopwatch_output = str(elapsed_time / 3600) + ':' + str((elapsed_time - (elapsed_time // 3600) * 3600) // 60) + ':' + str(elapsed_time - ((elapsed_time // 3600) * 3600) - (((elapsed_time // 3600) * 3600) // 60))
 
             # Draw Stopwatch
-            _, _, w, h = draw.textbbox((0, 0), stopwatch_output, font=SMALL_FONT)
+            _, _, w, h = draw.textbbox((0, 0), stopwatch_output, font=LARGE_FONT)
             draw.text(((240-w)/2, (180-h)/2), stopwatch_output, font=LARGE_FONT, fill=WHITE)
 
 def display_image():
