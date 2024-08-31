@@ -6,9 +6,9 @@ import sys
 from time import time, strftime, gmtime, localtime
 import datetime
 import logging
-# import spidev as SPI
+import spidev as SPI
 sys.path.append("..")
-#from lib import LCD_1inch28
+from lib import LCD_1inch28
 from PIL import Image,ImageDraw,ImageFont
 
 # Raspberry Pi pin configuration:
@@ -32,7 +32,7 @@ LIGHT_BLUE = (173, 216, 230)    # Accent
 GRAY = (128, 128, 128)          # Neutral Background
 DARK_GRAY = (47, 79, 79)        # Contrast
 
-#disp = LCD_1inch28.LCD_1inch28()
+disp = LCD_1inch28.LCD_1inch28()
 
 # Pages
 home_page = Image.new("RGB", (240, 240), BLACK)    # REPLACE (240, 240) WITH (disp.width, disp.height)
@@ -47,10 +47,12 @@ stopwatch_initial_time = localtime()
 
 
 
-def startup():    
-    # disp.Init()
-    # disp.clear()
-    # disp.bl_DutyCycle(50)
+def startup():
+    global disp
+
+    disp.Init()
+    disp.clear()
+    disp.bl_DutyCycle(50)
 
     prepare_default_page(home_page)
     prepare_default_page(stopwatch_page)
@@ -102,9 +104,9 @@ def main():
     draw_home_page()
     draw_stopwatch_page()
 
-    stopwatch_page = stopwatch_page.save("test.png")
-
-
+    current_image = home_page
+    disp.ShowImage(current_image)
+    disp.module_exit()
 
 if __name__ == "__main__":
     main()
