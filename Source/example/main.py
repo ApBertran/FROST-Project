@@ -39,8 +39,6 @@ stopwatch_page = Image.new("RGB", (240, 240), BLACK)    # REPLACE (240, 240) WIT
 # Page Logic Variables
 current_page = 'stopwatch'
 stopwatch_running = True
-stopwatch_runtime = 0
-stopwatch_time_elapsed = localtime()
 stopwatch_initial_time = localtime()
 
 def startup():
@@ -74,10 +72,7 @@ def draw_home_page():
     draw.text(((240-w)/2, (228-h)/2), strftime("%H:%M", localtime()), font=HUGE_FONT, fill=WHITE)
 
 def draw_stopwatch_page():
-    global stopwatch_page, stopwatch_time_elapsed
-
-    # Run stopwatch data
-    stopwatch_logic()
+    global stopwatch_page
 
     # Prepare default image
     stopwatch_page = default_page()
@@ -87,18 +82,20 @@ def draw_stopwatch_page():
     _, _, w, h = draw.textbbox((0, 0), "Stopwatch", font=SMALL_FONT)
     draw.text(((240-w)/2, (50-h)/2), "Stopwatch", font=SMALL_FONT, fill=WHITE)
 
-    # Draw Stopwatch
-    _, _, w, h = draw.textbbox((0, 0), strftime('%H:%M:%S', stopwatch_time_elapsed), font=SMALL_FONT)
-    draw.text(((240-w)/2, (180-h)/2), strftime('%H:%M:%S', stopwatch_time_elapsed), font=LARGE_FONT, fill=WHITE)
+    # Run stopwatch data
+    stopwatch_logic(draw)
 
-def stopwatch_logic():
-    global current_page, stopwatch_running, stopwatch_time_elapsed, stopwatch_initial_time
+def stopwatch_logic(draw):
+    global current_page, stopwatch_running, stopwatch_initial_time
 
     if current_page == 'stopwatch':
         if stopwatch_running == True:
-            stopwatch_time_elapsed.tm_hour = localtime().tm_hour - stopwatch_initial_time.tm_hour
-            stopwatch_time_elapsed.tm_min = localtime().tm_min - stopwatch_initial_time.tm_min
-            stopwatch_time_elapsed.tm_sec = localtime().tm_sec - stopwatch_initial_time.tm_sec
+            # Calculate elapsed time
+            stopwatch_output = str(localtime().tm_hour - stopwatch_initial_time.tm_hour) + ':' + str(localtime().tm_min - stopwatch_initial_time.tm_min) + ':' + str(localtime().tm_sec - stopwatch_initial_time.tm_sec)
+
+            # Draw Stopwatch
+            _, _, w, h = draw.textbbox((0, 0), stopwatch_output, font=SMALL_FONT)
+            draw.text(((240-w)/2, (180-h)/2), stopwatch_output, font=LARGE_FONT, fill=WHITE)
 
 def display_image():
     global home_page, stopwatch_page
