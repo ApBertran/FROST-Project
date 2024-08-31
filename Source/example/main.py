@@ -45,8 +45,6 @@ stopwatch_runtime = 0
 stopwatch_time_elapsed = 0
 stopwatch_initial_time = localtime()
 
-
-
 def startup():
     global disp
 
@@ -54,13 +52,12 @@ def startup():
     disp.clear()
     disp.bl_DutyCycle(50)
 
-    prepare_default_page(home_page)
-    prepare_default_page(stopwatch_page)
-
 def logic_loop():
     stopwatch_logic()
     
-def prepare_default_page(page):
+def default_page():
+    # Initialize default page
+    page = Image.new("RGB", (240, 240), BLACK)
     draw = ImageDraw.Draw(page)
 
     # Draw outer circle
@@ -68,8 +65,11 @@ def prepare_default_page(page):
     draw.arc((2,2,238,238),0, 360, fill =DARK_GRAY)
     draw.arc((3,3,237,237),0, 360, fill =DARK_GRAY)
 
+    return page
+
 def draw_home_page():
     global home_page
+    home_page = default_page()
     draw = ImageDraw.Draw(home_page)
 
     # Draw text
@@ -97,16 +97,22 @@ def stopwatch_logic():
             stopwatch_time_elapsed = localtime() - stopwatch_initial_time
             print(stopwatch_time_elapsed)
 
+def display_image():
+    global home_page, stopwatch_page
+    if current_page == 'home':
+        draw_home_page()
+        disp.ShowImage(home_page)
+    elif current_page == 'stopwatch':
+        draw_stopwatch_page()
+        disp.ShowImage(stopwatch_page)
 
 def main():
-    global home_page, stopwatch_page
+    # Initializations
     startup()
-    draw_home_page()
-    draw_stopwatch_page()
-
-    current_image = home_page
-    disp.ShowImage(current_image)
-    disp.module_exit()
+    
+    # Display current page
+    while True:
+        display_image()
 
 if __name__ == "__main__":
     main()
