@@ -219,11 +219,14 @@ def display_image():
         disp.ShowImage(stopwatch_page)
 
 def main():
+    global disp
+
     # Initializations
     startup()
     
     # Run primary loop
     while True:
+        disp.clear() # might break stuff, remove if display not working
         button_logic()
         display_image()
 

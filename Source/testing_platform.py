@@ -1,5 +1,6 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
+#import chardet
 import os
 import sys 
 from time import strftime, localtime
