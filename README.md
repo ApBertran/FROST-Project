@@ -6,3 +6,4 @@ FROST is a forearm-worn device for use while snowboarding. This device allows fo
 - **Stopwatch** (DONE) - to track the amount of time a run (or a slow ski-lift) takes
 - **Temperature Probe** - swings out from the device to check the temperature of your precise location (rather than the regional temperature from the weather app)
 - **GPS** - for accurate location tracking on the mountain
+- **Activity Logging** - for tracking your time spent on the mountain
