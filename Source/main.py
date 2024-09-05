@@ -9,6 +9,7 @@ sys.path.append("..")
 from lib import LCD_1inch28
 import RPi.GPIO as GPIO
 from PIL import Image,ImageDraw,ImageFont
+import dbus
 
 # Raspberry Pi pin configuration:
 GPIO.setmode(GPIO.BCM)
@@ -25,6 +26,14 @@ LEFT = 26
 
 channel_list = [OKAY, BACK, RIGHT, LEFT]
 GPIO.setup(channel_list, GPIO.IN, GPIO.PUD_DOWN)
+
+# Bluetooth configuration
+bus = dbus.SystemBus()
+device_address = open('MAC.txt', 'r').readline().strip() # INSERT BLUETOOTH MAC ADDRESS IN MAC.TXT
+bluez_service = "org.bluez"
+obj_path = f"/org/bluez/hci0/dev_{device_address.replace(':', '_')}"
+media_player = bus.get_object(bluez_service, obj_path + "/player0")
+iface = dbus.Interface(media_player, "org.bluez.MediaPlayer1")
 
 # Fonts
 HUGE_FONT = ImageFont.truetype("Font/Font02.ttf",80)
@@ -44,9 +53,9 @@ DARK_GRAY = (47, 79, 79)        # Contrast
 disp = LCD_1inch28.LCD_1inch28()
 
 # Pages
-template_page = Image.new("RGB", (disp.width, disp.height), BLACK)
 home_page = Image.new("RGB", (disp.width, disp.height), BLACK)
 stopwatch_page = Image.new("RGB", (disp.width, disp.height), BLACK)
+music_page = Image.new("RGB", (disp.width, disp.height), BLACK)
 
 # Page Logic Variables
 current_page = 'home'
@@ -59,26 +68,31 @@ stopwatch_output = '0:00:00'
 stopwatch_selection = 'none'
 
 def startup():
-    global disp, template_page
+    global disp
 
     # Initiate display
     disp.Init()
     disp.clear()
     disp.bl_DutyCycle(50)
 
-    # Prepare template image
-    draw = ImageDraw.Draw(template_page)
+    print("main running")
 
+def draw_default_page():
+    # Initialize default page
+    page = Image.new("RGB", (disp.width, disp.height), BLACK)
+    draw = ImageDraw.Draw(page)
+
+    # Draw outer circle
     draw.ellipse((1,1,239,239), fill =DARK_GRAY, outline =DARK_GRAY)
     draw.ellipse((3,3,237,237), fill =BLACK, outline =DARK_GRAY)
-
-    print("main running")
+    
+    return page
 
 def draw_home_page():
     global home_page
 
     # Prepare default image
-    home_page = template_page
+    home_page = draw_default_page()
     draw = ImageDraw.Draw(home_page)
 
     # Draw text
@@ -89,7 +103,7 @@ def draw_stopwatch_page():
     global stopwatch_page
 
     # Prepare default image
-    stopwatch_page = template_page
+    stopwatch_page = draw_default_page()
     draw = ImageDraw.Draw(stopwatch_page)
 
     # Draw header
@@ -175,6 +189,19 @@ def stopwatch_reset():
     stopwatch_paused_time = 0
     stopwatch_state = 'inactive'
 
+def draw_music_page():
+    global music_page
+
+    # Prepare default image
+    music_page = draw_default_page()
+    draw = ImageDraw.Draw(music_page)
+
+    # Draw header
+    _, _, w, h = draw.textbbox((0, 0), "Audio Control", font=SMALL_FONT)
+    draw.text(((240-w)/2, (50-h)/2), "Audio Control", font=SMALL_FONT, fill=WHITE)
+
+    # Draw music selection buttons
+
 def button_logic():
     global current_page, stopwatch_selection, stopwatch_state
 
@@ -217,6 +244,9 @@ def display_image():
     elif current_page == 'stopwatch':
         draw_stopwatch_page()
         disp.ShowImage(stopwatch_page)
+    elif current_page == 'music':
+        draw_music_page()
+        disp.ShowImage(music_page)
 
 def main():
     global disp
