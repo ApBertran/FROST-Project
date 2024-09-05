@@ -7,14 +7,25 @@ from time import time, strftime, localtime
 import spidev as SPI
 sys.path.append("..")
 from lib import LCD_1inch28
+import RPi.GPIO as GPIO
 from PIL import Image,ImageDraw,ImageFont
 
 # Raspberry Pi pin configuration:
+GPIO.setmode(GPIO.BCM)
+
 RST = 27
 DC = 25
 BL = 18
 bus = 0 
-device = 0 
+device = 0
+OKAY = 12
+BACK = 13
+RIGHT = 16
+LEFT = 26
+
+channel_list = [OK, BACK, RIGHT, LEFT]
+GPIO.setup(channel_list, GPIO.IN)
+
 
 # Fonts
 HUGE_FONT = ImageFont.truetype("Font/Font02.ttf",80)
@@ -38,11 +49,13 @@ stopwatch_page = Image.new("RGB", (240, 240), BLACK)    # REPLACE (240, 240) WIT
 
 # Page Logic Variables
 current_page = 'stopwatch'
+
 stopwatch_running = True
 stopwatch_initial_time = localtime()
-stopwatch_state = 'active'
+stopwatch_state = 'inactive'
 stopwatch_paused_time = 0
 stopwatch_output = '0:00:00'
+stopwatch_selection = 'start'
 
 def startup():
     global disp
@@ -50,7 +63,7 @@ def startup():
     disp.Init()
     disp.clear()
     disp.bl_DutyCycle(50)
-    print('testing platform running')
+    print("main running")
     
 def default_page():
     # Initialize default page
@@ -85,11 +98,42 @@ def draw_stopwatch_page():
     _, _, w, h = draw.textbbox((0, 0), "Stopwatch", font=SMALL_FONT)
     draw.text(((240-w)/2, (50-h)/2), "Stopwatch", font=SMALL_FONT, fill=WHITE)
 
+    # Draw stopwatch selection buttons
+    stopwatch_selection_buttons(draw)
+
     # Run stopwatch timer
     stopwatch_time_logic(draw)
-    
-    # Run stopwatch button selection
-    stopwatch_selection_logic(draw)
+
+def stopwatch_selection_buttons(draw):
+    global stopwatch_state, stopwatch_selection
+    sel_1 = DARK_GRAY
+    sel_2 = DARK_GRAY
+
+    # Highlight chosen button
+    if stopwatch_selection == 'reset':
+        sel_2 = WHITE
+    else:
+        sel_1 = WHITE
+
+    # Draw selection buttons
+    if stopwatch_state == 'inactive':
+        draw.ellipse((45,140,105,200), fill =sel_1, outline =sel_1)
+        draw.ellipse((46,141,104,199), fill = 'green', outline =sel_1)
+        _, _, w, h = draw.textbbox((0, 0), 'START', font=SMALL_FONT)
+        draw.text(((75-w/2), (170-h/2)), 'START', font=SMALL_FONT, fill=sel_1)
+    elif stopwatch_state == 'active':
+        draw.ellipse((45,140,105,200), fill =sel_1, outline =sel_1)
+        draw.ellipse((46,141,104,199), fill = 'red', outline =sel_1)
+        _, _, w, h = draw.textbbox((0, 0), 'STOP', font=SMALL_FONT)
+        draw.text(((75-w/2), (170-h/2)), 'STOP', font=SMALL_FONT, fill=sel_1)
+
+    draw.ellipse((135,140,195,200), fill =sel_2, outline =sel_2)
+    draw.ellipse((136,141,194,199), fill = 'gray', outline =sel_2)
+    _, _, w, h = draw.textbbox((0, 0), 'RESET', font=SMALL_FONT)
+    draw.text(((165-w/2), (170-h/2)), 'RESET', font=SMALL_FONT, fill=sel_2)
+
+    if GPIO.input(OKAY):
+        draw.ellipse((1,1,239,239), fill ='red', outline ='red')
 
 def stopwatch_time_logic(draw):
     global stopwatch_initial_time, stopwatch_paused_time, stopwatch_state, stopwatch_output
@@ -116,35 +160,6 @@ def stopwatch_time_logic(draw):
     # Draw stopwatch time
     _, _, w, h = draw.textbbox((0, 0), stopwatch_output, font=LARGE_FONT)
     draw.text(((240-w)/2, (180-h)/2), stopwatch_output, font=LARGE_FONT, fill=WHITE)
-
-def stopwatch_selection_logic(draw):
-    global stopwatch_state
-    selection = 'start'
-    sel_1 = DARK_GRAY
-    sel_2 = DARK_GRAY
-
-    # Highlight chosen button
-    if selection == 'reset':
-        sel_2 = WHITE
-    else:
-        sel_1 = WHITE
-
-    # Draw selection buttons
-    if stopwatch_state == 'inactive':
-        draw.ellipse((45,140,105,200), fill =sel_1, outline =sel_1)
-        draw.ellipse((46,141,104,199), fill = 'green', outline =sel_1)
-        _, _, w, h = draw.textbbox((0, 0), 'START', font=SMALL_FONT)
-        draw.text(((75-w/2), (170-h/2)), 'START', font=SMALL_FONT, fill=sel_1)
-    elif stopwatch_state == 'active':
-        draw.ellipse((45,140,105,200), fill =sel_1, outline =sel_1)
-        draw.ellipse((46,141,104,199), fill = 'red', outline =sel_1)
-        _, _, w, h = draw.textbbox((0, 0), 'STOP', font=SMALL_FONT)
-        draw.text(((75-w/2), (170-h/2)), 'STOP', font=SMALL_FONT, fill=sel_1)
-
-    draw.ellipse((135,140,195,200), fill =sel_2, outline =sel_2)
-    draw.ellipse((136,141,194,199), fill = 'gray', outline =sel_2)
-    _, _, w, h = draw.textbbox((0, 0), 'RESET', font=SMALL_FONT)
-    draw.text(((165-w/2), (170-h/2)), 'RESET', font=SMALL_FONT, fill=sel_2)
 
 def display_image():
     global home_page, stopwatch_page
