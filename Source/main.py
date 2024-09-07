@@ -26,10 +26,10 @@ LEFT = 26
 
 channel_list = [OKAY, BACK, RIGHT, LEFT]
 GPIO.setup(channel_list, GPIO.IN, GPIO.PUD_DOWN)
-left_pressed = None
-right_pressed = None
-okay_pressed = None
-back_pressed = None
+left_pressed = False
+right_pressed = False
+okay_pressed = False
+back_pressed = False
 
 # Bluetooth configuration
 bus = None
@@ -355,7 +355,7 @@ def music_display_info(draw):
         bluetooth_connection = False
 
 def button_logic():
-    global current_page, stopwatch_selection, stopwatch_state
+    global left_pressed, right_pressed, okay_pressed, back_pressed, current_page, stopwatch_selection, stopwatch_state, music_index
 
     # Handle LEFT inputs
     if GPIO.input(LEFT) and left_pressed == False:
