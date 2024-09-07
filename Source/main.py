@@ -84,10 +84,6 @@ def startup():
     disp.bl_DutyCycle(50)
 
     start_bluetooth()
-
-    # DEBUGGING
-    list_bluez_objects()
-    list_interfaces_for_object()
     
     print("main running")
 
@@ -103,40 +99,6 @@ def start_bluetooth():
 
     except Exception as e:
         print(f"Error initializing Bluetooth connection: {e}\nRetry bluetooth connection in the Audio Control page")
-
-def list_bluez_objects(): # DEBUG PURPOSES
-    global bus
-    try:
-        # Connect to the system bus
-        bus = dbus.SystemBus()
-
-        # Get the object manager for BlueZ
-        manager = dbus.Interface(bus.get_object("org.bluez", "/"), "org.freedesktop.DBus.ObjectManager")
-        
-        # List all available objects
-        objects = manager.GetManagedObjects()
-        for obj, props in objects.items():
-            print(f"Object Path: {obj}")
-            for iface, prop_values in props.items():
-                print(f"  Interface: {iface}")
-                print(f"    Properties: {prop_values}")
-            print()
-
-    except Exception as e:
-        print(f"Error listing BlueZ objects: {e}")
-
-def list_interfaces_for_object(obj_path): # DEBUG PURPOSES
-    try:
-        # Get the object and print all its interfaces
-        obj = bus.get_object("org.bluez", obj_path)
-        introspect_iface = dbus.Interface(obj, "org.freedesktop.DBus.Introspectable")
-        
-        # Print the available interfaces
-        xml_data = introspect_iface.Introspect()
-        print(f"Introspection data for {obj_path}:\n{xml_data}")
-
-    except Exception as e:
-        print(f"Error listing interfaces for object: {e}")
 
 def draw_default_page():
     # Initialize default page
@@ -345,14 +307,10 @@ def music_send_command(command):
 
 def music_playback_status():
     try:
-        # Get all available properties for debugging
-        all_properties = properties_iface.GetAll("org.bluez.MediaPlayer1")
-        print("All available properties:", all_properties)
-
         status = properties_iface.Get("org.bluez.MediaPlayer1", "Status")
         return status
 
-    except dbus.DBusException as e:
+    except Exception as e:
         print(f"Error getting playback status: {e}")
         return None
 
@@ -375,7 +333,7 @@ def music_display_info(draw):
 
             # Draw title
             _, _, w, h = draw.textbbox((0, 0), title, font=MEDIUM_FONT)
-            draw.text(((240-w)/2, (150-h)/2), title, font=MEDIUM_FONT, fill=WHITE)
+            draw.text(((240-w)/2, (170-h)/2), title, font=MEDIUM_FONT, fill=WHITE)
 
             # Draw artist
             _, _, w, h = draw.textbbox((0, 0), artist, font=SMALL_FONT)
@@ -383,7 +341,7 @@ def music_display_info(draw):
 
             # Draw time
             _, _, w, h = draw.textbbox((0, 0), f"{position_min}:{position_sec:02d}/{duration_min}:{duration_sec:02d}", font=SMALL_FONT)
-            draw.text(((240-w)/2, (240-h)/2), f"{position_min}:{position_sec:02d}/{duration_min}:{duration_sec:02d}", font=SMALL_FONT, fill=WHITE)
+            draw.text(((240-w)/2, (225-h)/2), f"{position_min}:{position_sec:02d}/{duration_min}:{duration_sec:02d}", font=SMALL_FONT, fill=WHITE)
             
             if bluetooth_connection == False:
                 bluetooth_connection = True
@@ -392,8 +350,8 @@ def music_display_info(draw):
             draw.text(((240-w)/2, (170-h)/2), "No song detected", font=MEDIUM_FONT, fill=WHITE)
 
     except Exception as e:
-        _, _, w, h = draw.textbbox((0, 0), "PLAY to connect", font=MEDIUM_FONT)
-        draw.text(((240-w)/2, (170-h)/2), "PLAY to connect", font=MEDIUM_FONT, fill=WHITE)
+        _, _, w, h = draw.textbbox((0, 0), "Press PLAY to connect", font=MEDIUM_FONT)
+        draw.text(((240-w)/2, (170-h)/2), "Press PLAY to connect", font=MEDIUM_FONT, fill=WHITE)
         bluetooth_connection = False
 
 def button_logic():
