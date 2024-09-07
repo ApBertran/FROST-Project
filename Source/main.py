@@ -84,8 +84,7 @@ def startup():
     disp.bl_DutyCycle(50)
 
     start_bluetooth()
-    
-    get_all_properties()
+    get_bluetooth_properties()
 
     print("main running")
 
@@ -102,9 +101,9 @@ def start_bluetooth():
     except Exception as e:
         print(f"Error initializing Bluetooth connection: {e}\nRetry bluetooth connection in the Audio Control page")
 
-def get_all_properties(): # DEBUGGING
+def get_bluetooth_properties():
     try:
-        # Retrieve all properties from the media player
+        # get all properties to verify bluetooth works
         all_properties = properties_iface.GetAll("org.bluez.MediaPlayer1")
         print("All available properties:")
         for key, value in all_properties.items():
@@ -310,10 +309,10 @@ def music_send_command(command):
             iface.Next()
         elif command == "previous":
             iface.Previous()
-        elif command == "increase":
-            iface.VolumeUp()
-        elif command == "decrease":
-            iface.VolumeDown()
+        elif command == "increase" and get_volume() != None:
+            set_volume(get_volume() + 10)
+        elif command == "decrease" and get_volume() != None:
+            set_volume(get_volume() - 10)
 
     except Exception as e:
         print(f"Error sending Bluetooth command: {e}")
@@ -326,6 +325,22 @@ def music_playback_status():
     except Exception as e:
         print(f"Error getting playback status: {e}")
         return None
+
+def get_volume():
+    try:
+        volume = properties_iface.Get("org.bluez.MediaTransport1", "Volume")
+        return volume
+    
+    except dbus.DBusException as e:
+        print(f"Error getting volume: {e}")
+        return None
+
+def set_volume(new_volume):
+    try:
+        new_volume = max(0, min(new_volume, 127)) # Volume is standard 7-bit, so clamp 0-127
+        properties_iface.Set("org.bluez.MediaTransport1", "Volume", dbus.UInt16(new_volume))
+    except dbus.DBusException as e:
+        print(f"Error setting volume: {e}")
 
 def music_display_info(draw):
     global bluetooth_connection
@@ -346,11 +361,11 @@ def music_display_info(draw):
 
             # Draw title
             _, _, w, h = draw.textbbox((0, 0), title, font=MEDIUM_FONT)
-            draw.text(((240-w)/2, (150-h)/2), title, font=MEDIUM_FONT, fill=WHITE)
+            draw.text(((240-w)/2, (140-h)/2), title, font=MEDIUM_FONT, fill=WHITE)
 
             # Draw artist
             _, _, w, h = draw.textbbox((0, 0), artist, font=SMALL_FONT)
-            draw.text(((240-w)/2, (200-h)/2), artist, font=SMALL_FONT, fill=WHITE)
+            draw.text(((240-w)/2, (190-h)/2), artist, font=SMALL_FONT, fill=WHITE)
 
             # Draw time
             _, _, w, h = draw.textbbox((0, 0), f"{position_min}:{position_sec:02d}/{duration_min}:{duration_sec:02d}", font=SMALL_FONT)
