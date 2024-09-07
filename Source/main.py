@@ -85,6 +85,8 @@ def startup():
 
     start_bluetooth()
     
+    get_all_properties()
+
     print("main running")
 
 def start_bluetooth():
@@ -99,6 +101,17 @@ def start_bluetooth():
 
     except Exception as e:
         print(f"Error initializing Bluetooth connection: {e}\nRetry bluetooth connection in the Audio Control page")
+
+def get_all_properties(): # DEBUGGING
+    try:
+        # Retrieve all properties from the media player
+        all_properties = properties_iface.GetAll("org.bluez.MediaPlayer1")
+        print("All available properties:")
+        for key, value in all_properties.items():
+            print(f"{key}: {value}")
+
+    except dbus.DBusException as e:
+        print(f"Error getting all properties: {e}")
 
 def draw_default_page():
     # Initialize default page
@@ -333,7 +346,7 @@ def music_display_info(draw):
 
             # Draw title
             _, _, w, h = draw.textbbox((0, 0), title, font=MEDIUM_FONT)
-            draw.text(((240-w)/2, (170-h)/2), title, font=MEDIUM_FONT, fill=WHITE)
+            draw.text(((240-w)/2, (150-h)/2), title, font=MEDIUM_FONT, fill=WHITE)
 
             # Draw artist
             _, _, w, h = draw.textbbox((0, 0), artist, font=SMALL_FONT)
@@ -341,7 +354,7 @@ def music_display_info(draw):
 
             # Draw time
             _, _, w, h = draw.textbbox((0, 0), f"{position_min}:{position_sec:02d}/{duration_min}:{duration_sec:02d}", font=SMALL_FONT)
-            draw.text(((240-w)/2, (225-h)/2), f"{position_min}:{position_sec:02d}/{duration_min}:{duration_sec:02d}", font=SMALL_FONT, fill=WHITE)
+            draw.text(((240-w)/2, (240-h)/2), f"{position_min}:{position_sec:02d}/{duration_min}:{duration_sec:02d}", font=SMALL_FONT, fill=WHITE)
             
             if bluetooth_connection == False:
                 bluetooth_connection = True
