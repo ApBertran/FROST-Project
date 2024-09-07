@@ -112,6 +112,15 @@ def get_bluetooth_properties():
     except dbus.DBusException as e:
         print(f"Error getting all properties: {e}")
 
+def check_mpris_interface(): # DEBUGGING
+    try:
+        obj = bus.get_object('org.bluez', obj_path)
+        introspect_iface = dbus.Interface(obj, 'org.freedesktop.DBus.Introspectable')
+        xml_data = introspect_iface.Introspect()
+        print("Available interfaces:\n", xml_data)
+    except dbus.DBusException as e:
+        print(f"Error introspecting interfaces: {e}")
+
 def draw_default_page():
     # Initialize default page
     page = Image.new("RGB", (disp.width, disp.height), BLACK)
