@@ -26,6 +26,10 @@ LEFT = 26
 
 channel_list = [OKAY, BACK, RIGHT, LEFT]
 GPIO.setup(channel_list, GPIO.IN, GPIO.PUD_DOWN)
+left_pressed = None
+right_pressed = None
+okay_pressed = None
+back_pressed = None
 
 # Bluetooth configuration
 bus = None
@@ -354,7 +358,8 @@ def button_logic():
     global current_page, stopwatch_selection, stopwatch_state
 
     # Handle LEFT inputs
-    if GPIO.input(LEFT):
+    if GPIO.input(LEFT) and left_pressed == False:
+        left_pressed = True
         if current_page == 'stopwatch':
             if stopwatch_selection == 'none':
                 current_page = 'home'
@@ -366,9 +371,13 @@ def button_logic():
                 current_page = 'stopwatch'
             else:
                 music_index = max(music_index - 1, 1)
+
+    elif not GPIO.input(LEFT) and left_pressed == True:
+        left_pressed = False
     
     # Handle RIGHT inputs
-    if GPIO.input(RIGHT):
+    if GPIO.input(RIGHT) and right_pressed == False:
+        right_pressed = True
         if current_page == 'home':
             current_page = 'stopwatch'
 
@@ -383,9 +392,13 @@ def button_logic():
                 pass # NEXT PAGE
             else:
                 music_index = min(music_index + 1, 5)
+    
+    elif not GPIO.input(RIGHT) and right_pressed == True:
+        right_pressed = False
 
     # Handle OKAY inputs
-    if GPIO.input(OKAY):
+    if GPIO.input(OKAY) and okay_pressed == False:
+        okay_pressed = True
         if current_page == 'stopwatch':
             if stopwatch_selection == 'none':
                 stopwatch_selection = 'toggle'
@@ -406,13 +419,20 @@ def button_logic():
                     music_send_command('play')
             else:
                 music_send_command(music_selection[music_index])
+    
+    elif not GPIO.input(OKAY) and okay_pressed == True:
+        okay_pressed = False
 
     # Handle BACK inputs
-    if GPIO.input(BACK):
+    if GPIO.input(BACK) and back_pressed == False:
+        back_pressed = True
         if current_page == 'stopwatch':
             stopwatch_selection = 'none'
         elif current_page == 'music':
             music_index = 0 # none
+    
+    elif not GPIO.input(BACK) and back_pressed == True:
+        back_pressed = False
 
 def display_image():
     #global home_page, stopwatch_page
