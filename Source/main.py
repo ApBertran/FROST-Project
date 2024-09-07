@@ -426,9 +426,9 @@ def button_logic():
             elif music_index == 2: # if == toggle
                 if bluetooth_connection == False:
                     start_bluetooth()
-                elif music_playback_status == 'playing':
+                elif music_playback_status() == 'playing':
                     music_send_command('pause')
-                elif music_playback_status == 'paused' or music_playback_status == 'stopped':
+                elif music_playback_status() == 'paused' or music_playback_status() == 'stopped':
                     music_send_command('play')
             else:
                 music_send_command(music_selection[music_index])
