@@ -84,6 +84,10 @@ def startup():
     disp.bl_DutyCycle(50)
 
     start_bluetooth()
+
+    # DEBUGGING
+    list_bluez_objects()
+    list_interfaces_for_object()
     
     print("main running")
 
@@ -99,6 +103,40 @@ def start_bluetooth():
 
     except Exception as e:
         print(f"Error initializing Bluetooth connection: {e}\nRetry bluetooth connection in the Audio Control page")
+
+def list_bluez_objects(): # DEBUG PURPOSES
+    global bus
+    try:
+        # Connect to the system bus
+        bus = dbus.SystemBus()
+
+        # Get the object manager for BlueZ
+        manager = dbus.Interface(bus.get_object("org.bluez", "/"), "org.freedesktop.DBus.ObjectManager")
+        
+        # List all available objects
+        objects = manager.GetManagedObjects()
+        for obj, props in objects.items():
+            print(f"Object Path: {obj}")
+            for iface, prop_values in props.items():
+                print(f"  Interface: {iface}")
+                print(f"    Properties: {prop_values}")
+            print()
+
+    except Exception as e:
+        print(f"Error listing BlueZ objects: {e}")
+
+def list_interfaces_for_object(obj_path): # DEBUG PURPOSES
+    try:
+        # Get the object and print all its interfaces
+        obj = bus.get_object("org.bluez", obj_path)
+        introspect_iface = dbus.Interface(obj, "org.freedesktop.DBus.Introspectable")
+        
+        # Print the available interfaces
+        xml_data = introspect_iface.Introspect()
+        print(f"Introspection data for {obj_path}:\n{xml_data}")
+
+    except Exception as e:
+        print(f"Error listing interfaces for object: {e}")
 
 def draw_default_page():
     # Initialize default page
