@@ -307,10 +307,14 @@ def music_send_command(command):
 
 def music_playback_status():
     try:
+        # Get all available properties for debugging
+        all_properties = properties_iface.GetAll("org.bluez.MediaPlayer1")
+        print("All available properties:", all_properties)
+
         status = properties_iface.Get("org.bluez.MediaPlayer1", "Status")
         return status
 
-    except Exception as e:
+    except dbus.DBusException as e:
         print(f"Error getting playback status: {e}")
         return None
 
@@ -333,7 +337,7 @@ def music_display_info(draw):
 
             # Draw title
             _, _, w, h = draw.textbbox((0, 0), title, font=MEDIUM_FONT)
-            draw.text(((240-w)/2, (170-h)/2), title, font=MEDIUM_FONT, fill=WHITE)
+            draw.text(((240-w)/2, (150-h)/2), title, font=MEDIUM_FONT, fill=WHITE)
 
             # Draw artist
             _, _, w, h = draw.textbbox((0, 0), artist, font=SMALL_FONT)
@@ -341,7 +345,7 @@ def music_display_info(draw):
 
             # Draw time
             _, _, w, h = draw.textbbox((0, 0), f"{position_min}:{position_sec:02d}/{duration_min}:{duration_sec:02d}", font=SMALL_FONT)
-            draw.text(((240-w)/2, (225-h)/2), f"{position_min}:{position_sec:02d}/{duration_min}:{duration_sec:02d}", font=SMALL_FONT, fill=WHITE)
+            draw.text(((240-w)/2, (240-h)/2), f"{position_min}:{position_sec:02d}/{duration_min}:{duration_sec:02d}", font=SMALL_FONT, fill=WHITE)
             
             if bluetooth_connection == False:
                 bluetooth_connection = True
@@ -350,8 +354,8 @@ def music_display_info(draw):
             draw.text(((240-w)/2, (170-h)/2), "No song detected", font=MEDIUM_FONT, fill=WHITE)
 
     except Exception as e:
-        _, _, w, h = draw.textbbox((0, 0), "Press PLAY to connect", font=MEDIUM_FONT)
-        draw.text(((240-w)/2, (170-h)/2), "Press PLAY to connect", font=MEDIUM_FONT, fill=WHITE)
+        _, _, w, h = draw.textbbox((0, 0), "PLAY to connect", font=MEDIUM_FONT)
+        draw.text(((240-w)/2, (170-h)/2), "PLAY to connect", font=MEDIUM_FONT, fill=WHITE)
         bluetooth_connection = False
 
 def button_logic():
