@@ -132,6 +132,27 @@ def draw_default_page():
     
     return page
 
+def draw_home_icon(draw, x_offset, y_offset, highlight):
+    draw.polygon([(120+x_offset, 210+y_offset), (111+x_offset, 217+y_offset), (129+x_offset, 217+y_offset)], fill =BLACK, outline=highlight)
+    draw.polygon([(120+x_offset, 211+y_offset), (111+x_offset, 217+y_offset), (129+x_offset, 217+y_offset)], fill =BLACK, outline=highlight)
+    draw.polygon([(120+x_offset, 212+y_offset), (111+x_offset, 218+y_offset), (129+x_offset, 218+y_offset)], fill =BLACK, outline=highlight)
+    draw.rectangle(((114+x_offset, 217+y_offset), (126+x_offset, 228+y_offset)), fill=BLACK, outline=highlight)
+    draw.rectangle(((115+x_offset, 218+y_offset), (125+x_offset, 227+y_offset)), fill=BLACK, outline=highlight)
+
+def draw_stopwatch_icon(draw, x_offset, y_offset, highlight):
+    draw.ellipse((111+x_offset, 210+y_offset, 129+x_offset, 228+y_offset), fill =highlight, outline =highlight)
+    draw.ellipse((112+x_offset, 211+y_offset, 128+x_offset, 227+y_offset), fill =BLACK, outline =highlight)
+    draw.line((119+x_offset, 219+y_offset, 124+x_offset, 219+y_offset), width=2, fill=highlight)
+    draw.line((120+x_offset, 219+y_offset, 120+x_offset, 213+y_offset), width=2, fill=highlight)
+    
+def draw_music_icon(draw, x_offset, y_offset, highlight):
+    draw.line((115+x_offset, 212+y_offset, 115+x_offset, 226+y_offset), width=2, fill=highlight)
+    draw.line((127+x_offset, 212+y_offset, 127+x_offset, 226+y_offset), width=2, fill=highlight)
+    draw.line((116+x_offset, 211+y_offset, 127+x_offset, 211+y_offset), width=2, fill=highlight)
+    draw.line((115+x_offset, 216+y_offset, 128+x_offset, 216+y_offset), width=2, fill=highlight)
+    draw.ellipse((111+x_offset, 224+y_offset, 115+x_offset, 228+y_offset), fill =highlight, outline =highlight)
+    draw.ellipse((123+x_offset, 224+y_offset, 127+x_offset, 228+y_offset), fill =highlight, outline =highlight)
+
 def draw_home_page():
     global home_page
 
@@ -142,6 +163,10 @@ def draw_home_page():
     # Draw text
     _, _, w, h = draw.textbbox((0, 0), strftime("%H:%M", localtime()), font=HUGE_FONT)
     draw.text(((240-w)/2, (228-h)/2), strftime("%H:%M", localtime()), font=HUGE_FONT, fill=WHITE)
+
+    # Draw icon bar
+    draw_home_icon(draw, 0, 5, WHITE)
+    draw_music_icon(draw, 25, 0, DARK_GRAY)
 
 def draw_stopwatch_page():
     global stopwatch_page
@@ -156,6 +181,10 @@ def draw_stopwatch_page():
 
     # Draw stopwatch selection buttons
     stopwatch_selection_buttons(draw)
+
+    # Draw icon bar
+    draw_music_icon(draw, -25, 0, DARK_GRAY)
+    draw_stopwatch_icon(draw, 0, 5, WHITE)
 
     # Run stopwatch timer
     stopwatch_time_logic(draw)
@@ -215,7 +244,6 @@ def stopwatch_time_logic(draw):
 
 def stopwatch_toggle():
     global stopwatch_state, stopwatch_paused_time, stopwatch_initial_time
-    # stopwatch_elapsed_time
 
     if stopwatch_state == 'inactive':
         stopwatch_state = 'active'
@@ -227,9 +255,9 @@ def stopwatch_toggle():
 def stopwatch_reset():
     global stopwatch_elapsed_time, stopwatch_paused_time, stopwatch_state
 
+    stopwatch_state = 'inactive'
     stopwatch_elapsed_time = 0
     stopwatch_paused_time = 0
-    stopwatch_state = 'inactive'
 
 def draw_music_page():
     global music_page
@@ -244,6 +272,11 @@ def draw_music_page():
 
     # Draw music selection buttons
     music_selection_buttons(draw)
+
+    # Draw icon bar
+    draw_home_icon(draw, -25, 0, DARK_GRAY)
+    draw_stopwatch_icon(draw, 25, 0, DARK_GRAY)
+    draw_music_icon(draw, 0, 5, WHITE)
 
     # Draw music info
     music_display_info(draw)
@@ -399,13 +432,13 @@ def button_logic():
         left_pressed = True
         if current_page == 'stopwatch':
             if stopwatch_selection == 'none':
-                current_page = 'home'
+                current_page = 'music'
             elif stopwatch_selection == 'reset':
                 stopwatch_selection = 'toggle'
         
         elif current_page == 'music':
             if music_index == 0: # if == none
-                current_page = 'stopwatch'
+                current_page = 'home'
             else:
                 music_index = max(music_index - 1, 1)
 
@@ -416,17 +449,17 @@ def button_logic():
     if GPIO.input(RIGHT) and right_pressed == False:
         right_pressed = True
         if current_page == 'home':
-            current_page = 'stopwatch'
+            current_page = 'music'
 
         elif current_page == 'stopwatch':
             if stopwatch_selection == 'none':
-                current_page = 'music'
+                pass # NEXT PAGE
             elif stopwatch_selection == 'toggle':
                 stopwatch_selection = 'reset'
         
         elif current_page == 'music':
             if music_index == 0: # if == none
-                pass # NEXT PAGE
+                current_page = 'stopwatch'
             else:
                 music_index = min(music_index + 1, 5)
     
