@@ -10,6 +10,9 @@ from lib import LCD_1inch28
 import RPi.GPIO as GPIO
 from PIL import Image,ImageDraw,ImageFont
 import dbus
+import gattlib
+import struct
+import json
 
 # Raspberry Pi pin configuration:
 GPIO.setmode(GPIO.BCM)
@@ -34,6 +37,7 @@ back_pressed = False
 # Bluetooth configuration
 bus = None
 device_address = open('MAC.txt', 'r').readline().strip() # INSERT BLUETOOTH MAC ADDRESS IN MAC.TXT
+notification_address = open('DEVICE_NAME.txt', 'r').readline().strip() # INSERT BLUETOOTH DEVICE IN DEVICE_NAME.TXT
 obj_path = None
 media_player = None
 iface = None
@@ -75,6 +79,8 @@ stopwatch_selection = 'none'
 music_selection = ['none', 'previous', 'toggle', 'next', 'decrease', 'increase']
 music_index = 0
 
+notification_history = []
+
 def startup():
     global disp
 
@@ -111,15 +117,6 @@ def get_bluetooth_properties():
 
     except dbus.DBusException as e:
         print(f"Error getting all properties: {e}")
-
-def check_mpris_interface(): # DEBUGGING
-    try:
-        obj = bus.get_object('org.bluez', obj_path)
-        introspect_iface = dbus.Interface(obj, 'org.freedesktop.DBus.Introspectable')
-        xml_data = introspect_iface.Introspect()
-        print("Available interfaces:\n", xml_data)
-    except dbus.DBusException as e:
-        print(f"Error introspecting interfaces: {e}")
 
 def draw_default_page():
     # Initialize default page
@@ -423,6 +420,111 @@ def music_display_info(draw):
         _, _, w, h = draw.textbbox((0, 0), "Press PLAY to connect", font=MEDIUM_FONT)
         draw.text(((240-w)/2, (170-h)/2), "Press PLAY to connect", font=MEDIUM_FONT, fill=WHITE)
         bluetooth_connection = False
+
+def notification_add_to_history(sender, message):
+    global notification_history
+
+    # Store notification as a tuple: (sender, message, timestamp)
+    notification_history.append((sender, message, time.time()))
+
+    # Limit history to the last 10 notifications (if desired)
+    if len(notification_history) > 10:
+        notification_history.pop(0)
+
+# Function to check and remove notifications older than 1.5 hours (90 minutes)
+def delete_old_notifications():
+    global notification_history
+
+    # Filter out notifications older than 90 minutes (5400 seconds)
+    notification_history = [
+        (sender, message, timestamp) for sender, message, timestamp in notification_history
+        if time.time() - timestamp < 5400
+    ]
+
+# Text wrapping function for multiline text rendering
+def wrap_text(text, font, max_width):
+    lines = []
+    words = text.split()
+    while words:
+        line = ''
+        while words and font.getsize(line + words[0])[0] <= max_width:
+            line += (words.pop(0) + ' ')
+        lines.append(line.strip())
+    return lines
+
+# Function to display all notifications in history
+def display_notification_history(draw, font, max_width, line_height, position):
+    # Start drawing from the specified position
+    x, y = position
+    for notification in notification_history:
+        sender, message, timestamp = notification
+        wrapped_message = wrap_text(f"{sender}: {message}", font, max_width)
+        for line in wrapped_message:
+            draw.text((x, y), line, font=font, fill=(255, 255, 255))
+            y += line_height
+        y += line_height  # Add extra spacing between notifications
+
+# Example function to display the notifications on the screen
+def display_notifications(draw):
+    
+    # Position to start drawing the history (top-left corner)
+    position = (10, 10)
+    max_width = 220
+    line_height = 20
+    
+    # Before displaying, delete old notifications
+    delete_old_notifications()
+    
+    # Display notification history
+    display_notification_history(draw, SMALL_FONT, max_width, line_height, position)
+
+# Function to read notifications via Bluetooth using gattlib
+def read_notifications():
+    try:
+        adapter = gattlib.DiscoveryService('hci0')
+        devices = adapter.discover(2)  # Discover for 2 seconds
+        for address, name in devices.items():
+            if name == notification_address:  # Assuming iPhone Bluetooth connection
+                # Connect and read notifications
+                with gattlib.Device(address) as device:
+                    # Assuming a notification GATT service UUID (replace with actual)
+                    notification_uuid = "00002a46-0000-1000-8000-00805f9b34fb"
+                    value = device.char_read(notification_uuid)
+                    
+                    # Extract notification content (this is typically structured)
+                    notification_data = struct.unpack("<H", value)
+                    # Deserialize or decode as needed (assuming it's JSON encoded)
+                    notification = json.loads(notification_data)
+                    
+                    # Parse notification and add it to history
+                    sender = notification.get('sender', 'Unknown')
+                    message = notification.get('message', '')
+                    notification_add_to_history(sender, message)
+                    
+                    # Show on display
+                    image = Image.new('RGB', (240, 240), color='black')
+                    display_notifications(image)
+                    
+    except Exception as e:
+        print(f"Error reading notifications: {e}")
+
+# Example of how to trigger when a new notification is received
+def on_notification_received(sender, message):
+    notification_add_to_history(sender, message)
+    print(f"New Notification from {sender}: {message}")
+    
+    # Optionally, delete old notifications right after adding a new one
+    delete_old_notifications()
+
+# Simulate receiving notifications (for testing purposes)
+on_notification_received("Friend", "Hello")
+on_notification_received("Work", "Meeting at 3PM")
+time.sleep(5)  # Simulate a short delay
+on_notification_received("Mom", "Call me when you're free")
+
+# Open the notifications page (this will delete old ones before displaying)
+image = Image.new('RGB', (240, 240), color='black')  # Create a blank image
+display_notifications(image)  # Display notifications on the screen
 
 def button_logic():
     global left_pressed, right_pressed, okay_pressed, back_pressed, current_page, stopwatch_selection, stopwatch_state, music_index
