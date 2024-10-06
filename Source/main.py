@@ -432,7 +432,7 @@ def music_display_info(draw):
         draw.text(((240-w)/2, (170-h)/2), "Press PLAY to connect", font=MEDIUM_FONT, fill=WHITE)
         bluetooth_connection = False
 
-def draw_notifications_page(draw):
+def draw_notifications_page():
     global notifications_page
 
     # Prepare default image
@@ -492,6 +492,7 @@ def display_notification_history(draw, font, max_width, line_height, position):
     for notification in notification_history:
         sender, message, timestamp = notification
         wrapped_message = wrap_text(f"{sender}: {message}", font, max_width)
+        print(sender + ':' + message)
         for line in wrapped_message:
             draw.text((x, y), line, font=font, fill=(255, 255, 255))
             y += line_height
@@ -563,7 +564,7 @@ def button_logic():
 
         # Home Page
         if current_page == 'home':
-            current_page == 'notifications'
+            current_page = 'notifications'
 
         # Music Page
         elif current_page == 'music':
@@ -588,7 +589,7 @@ def button_logic():
 
         # Notifications Page
         if current_page == 'notifications':
-            current_page == 'home'
+            current_page = 'home'
 
         # Home Page
         elif current_page == 'home':
