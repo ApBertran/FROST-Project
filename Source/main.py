@@ -489,10 +489,10 @@ def wrap_text(text, font, max_width):
 def display_notification_history(draw, font, max_width, line_height, position):
     # Start drawing from the specified position
     x, y = position
+    print("display_notification_history running")
     for notification in notification_history:
         sender, message, timestamp = notification
         wrapped_message = wrap_text(f"{sender}: {message}", font, max_width)
-        print(sender + ':' + message)
         for line in wrapped_message:
             draw.text((x, y), line, font=font, fill=(255, 255, 255))
             y += line_height
@@ -502,12 +502,12 @@ def display_notification_history(draw, font, max_width, line_height, position):
 def display_notifications(draw):
     
     # Position to start drawing the history (top-left corner)
-    position = (10, 10)
-    max_width = 220
+    position = (30, 30)
+    max_width = 200
     line_height = 20
     
     # Before displaying, delete old notifications
-    delete_old_notifications()
+    #delete_old_notifications()
     
     # Display notification history
     display_notification_history(draw, SMALL_FONT, max_width, line_height, position)
