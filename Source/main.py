@@ -10,6 +10,9 @@ from lib import LCD_1inch28
 import RPi.GPIO as GPIO
 from PIL import Image,ImageDraw,ImageFont
 import dbus
+#import gattlib # for notifications, currently useless
+import struct
+import json
 
 # Raspberry Pi pin configuration:
 GPIO.setmode(GPIO.BCM)
@@ -34,6 +37,7 @@ back_pressed = False
 # Bluetooth configuration
 bus = None
 device_address = open('MAC.txt', 'r').readline().strip() # INSERT BLUETOOTH MAC ADDRESS IN MAC.TXT
+notification_address = open('DEVICE_NAME.txt', 'r').readline().strip() # INSERT BLUETOOTH DEVICE IN DEVICE_NAME.TXT
 obj_path = None
 media_player = None
 iface = None
@@ -61,6 +65,7 @@ disp = LCD_1inch28.LCD_1inch28()
 home_page = Image.new("RGB", (disp.width, disp.height), BLACK)
 stopwatch_page = Image.new("RGB", (disp.width, disp.height), BLACK)
 music_page = Image.new("RGB", (disp.width, disp.height), BLACK)
+notifications_page = Image.new("RGB", (disp.width, disp.height), BLACK)
 
 # Page Logic Variables
 current_page = 'home'
@@ -74,6 +79,8 @@ stopwatch_selection = 'none'
 
 music_selection = ['none', 'previous', 'toggle', 'next', 'decrease', 'increase']
 music_index = 0
+
+notification_history = []
 
 def startup():
     global disp
@@ -112,15 +119,6 @@ def get_bluetooth_properties():
     except dbus.DBusException as e:
         print(f"Error getting all properties: {e}")
 
-def check_mpris_interface(): # DEBUGGING
-    try:
-        obj = bus.get_object('org.bluez', obj_path)
-        introspect_iface = dbus.Interface(obj, 'org.freedesktop.DBus.Introspectable')
-        xml_data = introspect_iface.Introspect()
-        print("Available interfaces:\n", xml_data)
-    except dbus.DBusException as e:
-        print(f"Error introspecting interfaces: {e}")
-
 def draw_default_page():
     # Initialize default page
     page = Image.new("RGB", (disp.width, disp.height), BLACK)
@@ -153,6 +151,14 @@ def draw_music_icon(draw, x_offset, y_offset, highlight):
     draw.ellipse((111+x_offset, 224+y_offset, 115+x_offset, 228+y_offset), fill =highlight, outline =highlight)
     draw.ellipse((123+x_offset, 224+y_offset, 127+x_offset, 228+y_offset), fill =highlight, outline =highlight)
 
+def draw_notifications_icon(draw, x_offset, y_offset, highlight):
+    draw.arc(((113+x_offset, 211+y_offset),(127+x_offset, 224+y_offset)), start=180, end=360, fill=highlight)
+    draw.arc(((113+x_offset, 212+y_offset),(127+x_offset, 225+y_offset)), start=180, end=360, fill=highlight)
+    draw.line((113+x_offset, 215+y_offset, 113+x_offset, 224+y_offset), width=2, fill=highlight)
+    draw.line((126+x_offset, 215+y_offset, 126+x_offset, 224+y_offset), width=2, fill=highlight)
+    draw.line((111+x_offset, 225+y_offset, 129+x_offset, 225+y_offset), width=2, fill=highlight)
+    draw.rectangle(((119+x_offset, 227+y_offset), (121+x_offset, 228+y_offset)), fill=highlight, outline=highlight)
+
 def draw_home_page():
     global home_page
 
@@ -167,6 +173,7 @@ def draw_home_page():
     # Draw icon bar
     draw_home_icon(draw, 0, 5, WHITE)
     draw_music_icon(draw, 25, 0, DARK_GRAY)
+    draw_notifications_icon(draw, -25, 0, DARK_GRAY)
 
 def draw_stopwatch_page():
     global stopwatch_page
@@ -236,7 +243,7 @@ def stopwatch_time_logic(draw):
         if int(seconds) < 10:
             seconds = '0' + seconds
         
-        stopwatch_output = hours + ':' + minutes + ":" + seconds
+        stopwatch_output = hours + ':' + minutes + ':' + seconds
     
     # Draw stopwatch time
     _, _, w, h = draw.textbbox((0, 0), stopwatch_output, font=LARGE_FONT)
@@ -253,11 +260,12 @@ def stopwatch_toggle():
         stopwatch_paused_time = stopwatch_elapsed_time
 
 def stopwatch_reset():
-    global stopwatch_elapsed_time, stopwatch_paused_time, stopwatch_state
+    global stopwatch_elapsed_time, stopwatch_paused_time, stopwatch_state, stopwatch_output
 
     stopwatch_state = 'inactive'
     stopwatch_elapsed_time = 0
     stopwatch_paused_time = 0
+    stopwatch_output = '0:00:00'
 
 def draw_music_page():
     global music_page
@@ -304,41 +312,28 @@ def music_selection_buttons(draw):
         sel_inc = WHITE
 
     # Previous
-    draw.ellipse((47.5,145,82.5,180), fill =sel_prev, outline =sel_prev)
-    draw.ellipse((48.5,146,81.5,179), fill =BLACK, outline =sel_prev)
+    draw.ellipse((47.5,165,102.5,180), fill =sel_prev, outline =sel_prev)
+    draw.ellipse((48.5,166,101.5,179), fill =BLACK, outline =sel_prev)
 
-    draw.polygon([(52.5,162.5), (64, 156), (64,169)], fill =sel_prev)
-    draw.polygon([(62,162.5), (74.5, 156), (74.5,169)], fill =sel_prev)
+    draw.polygon([(52.5,182.5), (64, 176), (64,189)], fill =sel_prev)
+    draw.polygon([(62,182.5), (74.5, 176), (74.5,189)], fill =sel_prev)
 
     # Toggle
-    draw.ellipse((102.5,145,137.5,180), fill =sel_toggle, outline =sel_toggle)
-    draw.ellipse((103.5,146,136.5,179), fill =BLACK, outline =sel_toggle)
+    draw.ellipse((102.5,165,137.5,200), fill =sel_toggle, outline =sel_toggle)
+    draw.ellipse((103.5,166,136.5,199), fill =BLACK, outline =sel_toggle)
 
     if music_playback_status() == 'playing':
-        draw.rectangle(((112.5, 154), (117.5, 171)), fill=sel_toggle)
-        draw.rectangle(((122.5, 154), (127.5, 171)), fill=sel_toggle)
+        draw.rectangle(((112.5, 174), (117.5, 191)), fill=sel_toggle)
+        draw.rectangle(((122.5, 174), (127.5, 191)), fill=sel_toggle)
     else:
-        draw.polygon([(130.5,162.5), (112.5, 154), (112.5,171)], fill =sel_toggle)
+        draw.polygon([(130.5,182.5), (112.5, 174), (112.5,191)], fill =sel_toggle)
     
     # Next
-    draw.ellipse((157.5,145,192.5,180), fill =sel_next, outline =sel_next)
-    draw.ellipse((158.5,146,191.5,179), fill =BLACK, outline =sel_next)
+    draw.ellipse((157.5,165,192.5,200), fill =sel_next, outline =sel_next)
+    draw.ellipse((158.5,166,191.5,199), fill =BLACK, outline =sel_next)
 
-    draw.polygon([(179,162.5), (165.5, 156), (165.5,169)], fill =sel_next)
-    draw.polygon([(187.5,162.5), (176, 156), (176,169)], fill =sel_next)
-
-    # Decrease Volume
-    draw.ellipse((75,185,110,220), fill =sel_dec, outline =sel_dec)
-    draw.ellipse((76,186,109,219), fill =BLACK, outline =sel_dec)
-
-    draw.rectangle(((82, 200), (103, 205)), fill=sel_dec)
-
-    # Increase Volume
-    draw.ellipse((130,185,165,220), fill =sel_inc, outline =sel_inc)
-    draw.ellipse((131,186,164,219), fill =BLACK, outline =sel_inc)
-
-    draw.rectangle(((137, 200), (158, 205)), fill=sel_inc)
-    draw.rectangle(((145, 192), (150, 213)), fill=sel_inc)
+    draw.polygon([(179,182.5), (165.5, 176), (165.5,189)], fill =sel_next)
+    draw.polygon([(187.5,182.5), (176, 176), (176,189)], fill =sel_next)
 
 def music_send_command(command):
     # Separate function to more cleanly handle errors in order to run without bluetooth functionality
@@ -403,26 +398,47 @@ def music_display_info(draw):
 
             # Draw title
             _, _, w, h = draw.textbbox((0, 0), title, font=MEDIUM_FONT)
-            draw.text(((240-w)/2, (140-h)/2), title, font=MEDIUM_FONT, fill=WHITE)
+            draw.text(((240-w)/2, (180-h)/2), title, font=MEDIUM_FONT, fill=WHITE)
 
             # Draw artist
             _, _, w, h = draw.textbbox((0, 0), artist, font=SMALL_FONT)
-            draw.text(((240-w)/2, (190-h)/2), artist, font=SMALL_FONT, fill=WHITE)
+            draw.text(((240-w)/2, (230-h)/2), artist, font=SMALL_FONT, fill=WHITE)
 
             # Draw time
             _, _, w, h = draw.textbbox((0, 0), f"{position_min}:{position_sec:02d}/{duration_min}:{duration_sec:02d}", font=SMALL_FONT)
-            draw.text(((240-w)/2, (240-h)/2), f"{position_min}:{position_sec:02d}/{duration_min}:{duration_sec:02d}", font=SMALL_FONT, fill=WHITE)
+            draw.text(((240-w)/2, (280-h)/2), f"{position_min}:{position_sec:02d}/{duration_min}:{duration_sec:02d}", font=SMALL_FONT, fill=WHITE)
             
             if bluetooth_connection == False:
                 bluetooth_connection = True
         else:
             _, _, w, h = draw.textbbox((0, 0), "No song detected", font=MEDIUM_FONT)
-            draw.text(((240-w)/2, (170-h)/2), "No song detected", font=MEDIUM_FONT, fill=WHITE)
+            draw.text(((240-w)/2, (210-h)/2), "No song detected", font=MEDIUM_FONT, fill=WHITE)
 
     except Exception as e:
-        _, _, w, h = draw.textbbox((0, 0), "Press PLAY to connect", font=MEDIUM_FONT)
-        draw.text(((240-w)/2, (170-h)/2), "Press PLAY to connect", font=MEDIUM_FONT, fill=WHITE)
+        _, _, w, h = draw.textbbox((0, 0), "Retry Connection", font=MEDIUM_FONT)
+        draw.text(((240-w)/2, (210-h)/2), "Retry Connection", font=MEDIUM_FONT, fill=WHITE)
         bluetooth_connection = False
+
+def draw_notifications_page():
+    global notifications_page
+
+    # Prepare default image
+    notifications_page = draw_default_page()
+    draw = ImageDraw.Draw(notifications_page)
+
+    # Draw header
+    _, _, w, h = draw.textbbox((0, 0), "Notifications", font=SMALL_FONT)
+    draw.text(((240-w)/2, (50-h)/2), "Notifications", font=SMALL_FONT, fill=WHITE)
+
+    # Draw music selection buttons
+    # music_selection_buttons(draw)
+
+    # Draw icon bar
+    draw_home_icon(draw, 25, 0, DARK_GRAY)
+    draw_notifications_icon(draw, 0, 5, WHITE)
+
+    # Draw notification info
+    # display_notifications(draw)
 
 def button_logic():
     global left_pressed, right_pressed, okay_pressed, back_pressed, current_page, stopwatch_selection, stopwatch_state, music_index
@@ -430,17 +446,24 @@ def button_logic():
     # Handle LEFT inputs
     if GPIO.input(LEFT) and left_pressed == False:
         left_pressed = True
-        if current_page == 'stopwatch':
-            if stopwatch_selection == 'none':
-                current_page = 'music'
-            elif stopwatch_selection == 'reset':
-                stopwatch_selection = 'toggle'
-        
+
+        # Home Page
+        if current_page == 'home':
+            current_page = 'notifications'
+
+        # Music Page
         elif current_page == 'music':
             if music_index == 0: # if == none
                 current_page = 'home'
             else:
                 music_index = max(music_index - 1, 1)
+
+        # Stopwatch Page
+        elif current_page == 'stopwatch':
+            if stopwatch_selection == 'none':
+                current_page = 'music'
+            elif stopwatch_selection == 'reset':
+                stopwatch_selection = 'toggle'
 
     elif not GPIO.input(LEFT) and left_pressed == True:
         left_pressed = False
@@ -448,20 +471,30 @@ def button_logic():
     # Handle RIGHT inputs
     if GPIO.input(RIGHT) and right_pressed == False:
         right_pressed = True
-        if current_page == 'home':
+
+        # Notifications Page
+        if current_page == 'notifications':
+            current_page = 'home'
+
+        # Home Page
+        elif current_page == 'home':
             current_page = 'music'
 
+        # Music Page
+        elif current_page == 'music':
+            if music_index == 0: # if == none
+                current_page = 'stopwatch'
+            else:
+                music_index = min(music_index + 1, 5)
+
+        # Stopwatch Page
         elif current_page == 'stopwatch':
             if stopwatch_selection == 'none':
                 pass # NEXT PAGE
             elif stopwatch_selection == 'toggle':
                 stopwatch_selection = 'reset'
         
-        elif current_page == 'music':
-            if music_index == 0: # if == none
-                current_page = 'stopwatch'
-            else:
-                music_index = min(music_index + 1, 5)
+        
     
     elif not GPIO.input(RIGHT) and right_pressed == True:
         right_pressed = False
@@ -515,6 +548,9 @@ def display_image():
     elif current_page == 'music':
         draw_music_page()
         disp.ShowImage(music_page)
+    elif current_page == 'notifications':
+        draw_notifications_page()
+        disp.ShowImage(notifications_page)
 
 def main():
     global disp
