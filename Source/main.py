@@ -10,7 +10,7 @@ from lib import LCD_1inch28
 import RPi.GPIO as GPIO
 from PIL import Image,ImageDraw,ImageFont
 import dbus
-import gattlib
+#import gattlib # for notifications, currently useless
 import struct
 import json
 
@@ -312,41 +312,28 @@ def music_selection_buttons(draw):
         sel_inc = WHITE
 
     # Previous
-    draw.ellipse((47.5,145,82.5,180), fill =sel_prev, outline =sel_prev)
-    draw.ellipse((48.5,146,81.5,179), fill =BLACK, outline =sel_prev)
+    draw.ellipse((47.5,165,102.5,180), fill =sel_prev, outline =sel_prev)
+    draw.ellipse((48.5,166,101.5,179), fill =BLACK, outline =sel_prev)
 
-    draw.polygon([(52.5,162.5), (64, 156), (64,169)], fill =sel_prev)
-    draw.polygon([(62,162.5), (74.5, 156), (74.5,169)], fill =sel_prev)
+    draw.polygon([(52.5,182.5), (64, 176), (64,189)], fill =sel_prev)
+    draw.polygon([(62,182.5), (74.5, 176), (74.5,189)], fill =sel_prev)
 
     # Toggle
-    draw.ellipse((102.5,145,137.5,180), fill =sel_toggle, outline =sel_toggle)
-    draw.ellipse((103.5,146,136.5,179), fill =BLACK, outline =sel_toggle)
+    draw.ellipse((102.5,165,137.5,200), fill =sel_toggle, outline =sel_toggle)
+    draw.ellipse((103.5,166,136.5,199), fill =BLACK, outline =sel_toggle)
 
     if music_playback_status() == 'playing':
-        draw.rectangle(((112.5, 154), (117.5, 171)), fill=sel_toggle)
-        draw.rectangle(((122.5, 154), (127.5, 171)), fill=sel_toggle)
+        draw.rectangle(((112.5, 174), (117.5, 191)), fill=sel_toggle)
+        draw.rectangle(((122.5, 174), (127.5, 191)), fill=sel_toggle)
     else:
-        draw.polygon([(130.5,162.5), (112.5, 154), (112.5,171)], fill =sel_toggle)
+        draw.polygon([(130.5,182.5), (112.5, 174), (112.5,191)], fill =sel_toggle)
     
     # Next
-    draw.ellipse((157.5,145,192.5,180), fill =sel_next, outline =sel_next)
-    draw.ellipse((158.5,146,191.5,179), fill =BLACK, outline =sel_next)
+    draw.ellipse((157.5,165,192.5,200), fill =sel_next, outline =sel_next)
+    draw.ellipse((158.5,166,191.5,199), fill =BLACK, outline =sel_next)
 
-    draw.polygon([(179,162.5), (165.5, 156), (165.5,169)], fill =sel_next)
-    draw.polygon([(187.5,162.5), (176, 156), (176,169)], fill =sel_next)
-
-    # Decrease Volume
-    # draw.ellipse((75,185,110,220), fill =sel_dec, outline =sel_dec)
-    # draw.ellipse((76,186,109,219), fill =BLACK, outline =sel_dec)
-
-    # draw.rectangle(((82, 200), (103, 205)), fill=sel_dec)
-
-    # Increase Volume
-    # draw.ellipse((130,185,165,220), fill =sel_inc, outline =sel_inc)
-    # draw.ellipse((131,186,164,219), fill =BLACK, outline =sel_inc)
-
-    # draw.rectangle(((137, 200), (158, 205)), fill=sel_inc)
-    # draw.rectangle(((145, 192), (150, 213)), fill=sel_inc)
+    draw.polygon([(179,182.5), (165.5, 176), (165.5,189)], fill =sel_next)
+    draw.polygon([(187.5,182.5), (176, 176), (176,189)], fill =sel_next)
 
 def music_send_command(command):
     # Separate function to more cleanly handle errors in order to run without bluetooth functionality
@@ -411,25 +398,25 @@ def music_display_info(draw):
 
             # Draw title
             _, _, w, h = draw.textbbox((0, 0), title, font=MEDIUM_FONT)
-            draw.text(((240-w)/2, (140-h)/2), title, font=MEDIUM_FONT, fill=WHITE)
+            draw.text(((240-w)/2, (180-h)/2), title, font=MEDIUM_FONT, fill=WHITE)
 
             # Draw artist
             _, _, w, h = draw.textbbox((0, 0), artist, font=SMALL_FONT)
-            draw.text(((240-w)/2, (190-h)/2), artist, font=SMALL_FONT, fill=WHITE)
+            draw.text(((240-w)/2, (230-h)/2), artist, font=SMALL_FONT, fill=WHITE)
 
             # Draw time
             _, _, w, h = draw.textbbox((0, 0), f"{position_min}:{position_sec:02d}/{duration_min}:{duration_sec:02d}", font=SMALL_FONT)
-            draw.text(((240-w)/2, (240-h)/2), f"{position_min}:{position_sec:02d}/{duration_min}:{duration_sec:02d}", font=SMALL_FONT, fill=WHITE)
+            draw.text(((240-w)/2, (280-h)/2), f"{position_min}:{position_sec:02d}/{duration_min}:{duration_sec:02d}", font=SMALL_FONT, fill=WHITE)
             
             if bluetooth_connection == False:
                 bluetooth_connection = True
         else:
             _, _, w, h = draw.textbbox((0, 0), "No song detected", font=MEDIUM_FONT)
-            draw.text(((240-w)/2, (170-h)/2), "No song detected", font=MEDIUM_FONT, fill=WHITE)
+            draw.text(((240-w)/2, (210-h)/2), "No song detected", font=MEDIUM_FONT, fill=WHITE)
 
     except Exception as e:
-        _, _, w, h = draw.textbbox((0, 0), "Press PLAY to connect", font=MEDIUM_FONT)
-        draw.text(((240-w)/2, (170-h)/2), "Press PLAY to connect", font=MEDIUM_FONT, fill=WHITE)
+        _, _, w, h = draw.textbbox((0, 0), "Retry Connection", font=MEDIUM_FONT)
+        draw.text(((240-w)/2, (210-h)/2), "Retry Connection", font=MEDIUM_FONT, fill=WHITE)
         bluetooth_connection = False
 
 def draw_notifications_page():
@@ -451,109 +438,7 @@ def draw_notifications_page():
     draw_notifications_icon(draw, 0, 5, WHITE)
 
     # Draw notification info
-    display_notifications(draw)
-
-
-def notification_add_to_history(sender, message):
-    global notification_history
-
-    # Store notification as a tuple: (sender, message, timestamp)
-    notification_history.append((sender, message, time.time()))
-
-    # Limit history to the last 10 notifications (if desired)
-    if len(notification_history) > 10:
-        notification_history.pop(0)
-
-# Function to check and remove notifications older than 1.5 hours (90 minutes)
-def delete_old_notifications():
-    global notification_history
-
-    # Filter out notifications older than 90 minutes (5400 seconds)
-    notification_history = [
-        (sender, message, timestamp) for sender, message, timestamp in notification_history
-        if time.time() - timestamp < 5400
-    ]
-
-# Text wrapping function for multiline text rendering
-def wrap_text(text, font, max_width):
-    lines = []
-    words = text.split()
-    while words:
-        line = ''
-        while words and font.getsize(line + words[0])[0] <= max_width:
-            line += (words.pop(0) + ' ')
-        lines.append(line.strip())
-    return lines
-
-# Function to display all notifications in history
-def display_notification_history(draw, font, max_width, line_height, position):
-    # Start drawing from the specified position
-    x, y = position
-    print("display_notification_history running")
-    for notification in notification_history:
-        sender, message, timestamp = notification
-        wrapped_message = wrap_text(f"{sender}: {message}", font, max_width)
-        for line in wrapped_message:
-            draw.text((x, y), line, font=font, fill=(255, 255, 255))
-            y += line_height
-        y += line_height  # Add extra spacing between notifications
-
-# Example function to display the notifications on the screen
-def display_notifications(draw):
-    
-    # Position to start drawing the history (top-left corner)
-    position = (30, 30)
-    max_width = 200
-    line_height = 20
-    
-    # Before displaying, delete old notifications
-    #delete_old_notifications()
-    
-    # Display notification history
-    display_notification_history(draw, SMALL_FONT, max_width, line_height, position)
-
-# Function to read notifications via Bluetooth using gattlib
-def read_notifications(draw):
-    try:
-        adapter = gattlib.DiscoveryService('hci0')
-        devices = adapter.discover(2)  # Discover for 2 seconds
-        for address, name in devices.items():
-            if name == notification_address:  # Assuming iPhone Bluetooth connection
-                # Connect and read notifications
-                with gattlib.Device(address) as device:
-                    # Assuming a notification GATT service UUID (replace with actual)
-                    notification_uuid = "00002a46-0000-1000-8000-00805f9b34fb"
-                    value = device.char_read(notification_uuid)
-                    
-                    # Extract notification content (this is typically structured)
-                    notification_data = struct.unpack("<H", value)
-                    # Deserialize or decode as needed (assuming it's JSON encoded)
-                    notification = json.loads(notification_data)
-                    
-                    # Parse notification and add it to history
-                    sender = notification.get('sender', 'Unknown')
-                    message = notification.get('message', '')
-                    notification_add_to_history(sender, message)
-                    
-                    # Show on display
-                    display_notifications(draw)
-                    
-    except Exception as e:
-        print(f"Error reading notifications: {e}")
-
-# Example of how to trigger when a new notification is received
-# def on_notification_received(sender, message):
-#     notification_add_to_history(sender, message)
-#     print(f"New Notification from {sender}: {message}")
-    
-#     # Optionally, delete old notifications right after adding a new one
-#     delete_old_notifications()
-
-# Simulate receiving notifications (for testing purposes)
-# on_notification_received("Friend", "Hello")
-# on_notification_received("Work", "Meeting at 3PM")
-# time.sleep(5)  # Simulate a short delay
-# on_notification_received("Mom", "Call me when you're free")
+    # display_notifications(draw)
 
 def button_logic():
     global left_pressed, right_pressed, okay_pressed, back_pressed, current_page, stopwatch_selection, stopwatch_state, music_index
