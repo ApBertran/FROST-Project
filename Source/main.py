@@ -10,13 +10,14 @@ from lib import LCD_1inch28
 import RPi.GPIO as GPIO
 from PIL import Image,ImageDraw,ImageFont
 import dbus
+import smbus
 #import gattlib # for notifications, currently useless
 import struct
 import json
+import math
 
 # Raspberry Pi pin configuration:
 GPIO.setmode(GPIO.BCM)
-
 RST = 27
 DC = 25
 BL = 18
@@ -37,12 +38,19 @@ back_pressed = False
 # Bluetooth configuration
 bus = None
 device_address = open('MAC.txt', 'r').readline().strip() # INSERT BLUETOOTH MAC ADDRESS IN MAC.TXT
-notification_address = open('DEVICE_NAME.txt', 'r').readline().strip() # INSERT BLUETOOTH DEVICE IN DEVICE_NAME.TXT
 obj_path = None
 media_player = None
 iface = None
 properties_iface = None
 bluetooth_connection = None
+
+# Accelerometer / Magnetometer configuration
+imu_bus = smbus.SMBus(1)
+MAG_ADDRESS = 0x1E  # Magnetometer I2C address
+ACC_ADDRESS = 0x6A  # Accelerometer I2C address
+SCREEN_SIZE = 240
+CIRCLE_RADIUS = 119  # Radius of the circle (239px max size - 1px border)
+CENTER = SCREEN_SIZE // 2  # Center of the circle
 
 # Fonts
 HUGE_FONT = ImageFont.truetype("Font/Font02.ttf",80)
@@ -65,7 +73,7 @@ disp = LCD_1inch28.LCD_1inch28()
 home_page = Image.new("RGB", (disp.width, disp.height), BLACK)
 stopwatch_page = Image.new("RGB", (disp.width, disp.height), BLACK)
 music_page = Image.new("RGB", (disp.width, disp.height), BLACK)
-notifications_page = Image.new("RGB", (disp.width, disp.height), BLACK)
+compass_page = Image.new("RGB", (disp.width, disp.height), BLACK)
 
 # Page Logic Variables
 current_page = 'home'
@@ -79,8 +87,6 @@ stopwatch_selection = 'none'
 
 music_selection = ['none', 'previous', 'toggle', 'next', 'decrease', 'increase']
 music_index = 0
-
-notification_history = []
 
 def startup():
     global disp
@@ -419,26 +425,85 @@ def music_display_info(draw):
         draw.text(((240-w)/2, (210-h)/2), "Retry Connection", font=MEDIUM_FONT, fill=WHITE)
         bluetooth_connection = False
 
-def draw_notifications_page():
-    global notifications_page
+def draw_compass_page():
+    global compass_page
 
     # Prepare default image
-    notifications_page = draw_default_page()
-    draw = ImageDraw.Draw(notifications_page)
+    compass_page = draw_default_page()
+    draw = ImageDraw.Draw(compass_page)
 
     # Draw header
-    _, _, w, h = draw.textbbox((0, 0), "Notifications", font=SMALL_FONT)
-    draw.text(((240-w)/2, (50-h)/2), "Notifications", font=SMALL_FONT, fill=WHITE)
+    _, _, w, h = draw.textbbox((0, 0), "Compass", font=SMALL_FONT)
+    draw.text(((240-w)/2, (50-h)/2), "Compass", font=SMALL_FONT, fill=WHITE)
 
-    # Draw music selection buttons
-    # music_selection_buttons(draw)
+    mag_x, mag_y, mag_z = read_magnetometer()
+    acc_x, acc_y, acc_z = read_accelerometer()
+    
+    pitch, roll = calculate_pitch_and_roll(acc_x, acc_y, acc_z)
+    mag_x_comp, mag_y_comp = compensate_tilt(mag_x, mag_y, mag_z, pitch, roll)
+    
+    heading = calculate_tilt_compensated_heading(mag_x_comp, mag_y_comp)
+    draw_compass(draw, heading)
 
-    # Draw icon bar
-    draw_home_icon(draw, 25, 0, DARK_GRAY)
-    draw_notifications_icon(draw, 0, 5, WHITE)
+def read_imu_i2c(addr, reg_l, reg_h):
+    low = imu_bus.read_byte_data(addr, reg_l)
+    high = imu_bus.read_byte_data(addr, reg_h)
+    val = (high << 8) + low
+    if val >= 32768:
+        val -= 65536
+    return val
 
-    # Draw notification info
-    # display_notifications(draw)
+def read_magnetometer():
+    x = read_imu_i2c(MAG_ADDRESS, 0x28, 0x29)
+    y = read_imu_i2c(MAG_ADDRESS, 0x2A, 0x2B)
+    z = read_imu_i2c(MAG_ADDRESS, 0x2C, 0x2D)
+    return x, y, z
+
+def read_accelerometer():
+    x = read_imu_i2c(ACC_ADDRESS, 0x28, 0x29)
+    y = read_imu_i2c(ACC_ADDRESS, 0x2A, 0x2B)
+    z = read_imu_i2c(ACC_ADDRESS, 0x2C, 0x2D)
+    return x, y, z
+
+def calculate_pitch_and_roll(acc_x, acc_y, acc_z):
+    roll = math.atan2(acc_y, acc_z) * 180 / math.pi
+    pitch = math.atan(-acc_x / math.sqrt(acc_y**2 + acc_z**2)) * 180 / math.pi
+    return pitch, roll
+
+def compensate_tilt(mag_x, mag_y, mag_z, pitch, roll):
+    pitch_rad = math.radians(pitch)
+    roll_rad = math.radians(roll)
+    mag_x_comp = mag_x * math.cos(pitch_rad) + mag_z * math.sin(pitch_rad)
+    mag_y_comp = mag_x * math.sin(roll_rad) * math.sin(pitch_rad) + mag_y * math.cos(roll_rad) - mag_z * math.sin(roll_rad) * math.cos(pitch_rad)
+    return mag_x_comp, mag_y_comp
+
+def calculate_tilt_compensated_heading(mag_x_comp, mag_y_comp):
+    heading = math.atan2(mag_y_comp, mag_x_comp) * 180 / math.pi
+    if heading < 0:
+        heading += 360
+    return heading
+
+def draw_compass(draw, heading):
+    cardinal_directions = {
+        "N": 0,
+        "E": 90,
+        "S": 180,
+        "W": 270
+    }
+
+    # Rotate each cardinal direction based on the heading
+    for direction, angle in cardinal_directions.items():
+        # Adjust angle by the current heading
+        angle -= heading
+        angle_rad = math.radians(angle)
+
+        # Calculate the position for the text
+        x = CENTER + int(CIRCLE_RADIUS * math.sin(angle_rad))
+        y = CENTER - int(CIRCLE_RADIUS * math.cos(angle_rad))
+
+        # Draw the cardinal direction (centered text)
+        _, _, w, h = draw.textbbox((0, 0), direction, font=SMALL_FONT)
+        draw.text((x-w//2, y-h//2), direction, fill=WHITE, font=SMALL_FONT)
 
 def button_logic():
     global left_pressed, right_pressed, okay_pressed, back_pressed, current_page, stopwatch_selection, stopwatch_state, music_index
@@ -449,7 +514,7 @@ def button_logic():
 
         # Home Page
         if current_page == 'home':
-            current_page = 'notifications'
+            current_page = 'compass'
 
         # Music Page
         elif current_page == 'music':
@@ -472,8 +537,8 @@ def button_logic():
     if GPIO.input(RIGHT) and right_pressed == False:
         right_pressed = True
 
-        # Notifications Page
-        if current_page == 'notifications':
+        # Compass Page
+        if current_page == 'compass':
             current_page = 'home'
 
         # Home Page
@@ -548,9 +613,9 @@ def display_image():
     elif current_page == 'music':
         draw_music_page()
         disp.ShowImage(music_page)
-    elif current_page == 'notifications':
-        draw_notifications_page()
-        disp.ShowImage(notifications_page)
+    elif current_page == 'compass':
+        draw_compass_page()
+        disp.ShowImage(compass_page)
 
 def main():
     global disp
