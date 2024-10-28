@@ -495,10 +495,31 @@ def game_play_2048(draw):
     if GPIO.input(LEFT) + GPIO.input(RIGHT) + GPIO.input(BACK) + GPIO.input(OKAY) > 1:
         game_2048_selection = 'none'
     
-
+    if game_2048_is_game_over(grid_2048):
+        game_2048_active = False
+        game_2048_selection = 'over'
 
 
 def game_over_2048(draw):
+    global game_2048_selection
+
+    # Game Over Display
+    _, _, w, h = draw.textbbox((0, 0), 'GAME OVER', font=LARGE_FONT)
+    draw.text(((240-w)/2, (180-h)/2), 'GAME OVER', font=LARGE_FONT, fill=WHITE)
+
+    # Score Display
+    _, _, w, h = draw.textbbox((0, 0), 'Score', font=MEDIUM_FONT)
+    draw.text(((240-w)/2, (220-h)/2), 'Score', font=MEDIUM_FONT, fill=WHITE)
+
+    _, _, w, h = draw.textbbox((0, 0), score_2048, font=LARGE_FONT)
+    draw.text(((240-w)/2, (250-h)/2), score_2048, font=LARGE_FONT, fill=WHITE)
+
+    # Exit Button
+    _, _, w, h = draw.textbbox((0, 0), 'Press any button to exit', font=SMALL_FONT)
+    draw.text(((240-w)/2, (300-h)/2), 'Press any button to exit', font=SMALL_FONT, fill=WHITE)
+
+    if GPIO.input(LEFT) or GPIO.input(RIGHT) or GPIO.input(BACK) or GPIO.input(OKAY):
+        game_2048_selection = 'menu'
 
 def initialize_grid_2048(size=4):
     global grid_2048
@@ -579,6 +600,7 @@ def game_2048_move_left():
         grid_2048[i], score = game_2048_slide_and_merge(grid_2048[i])
         total_score += score
     score_2048 += total_score
+    add_new_tile_2048(grid_2048)
 
 def game_2048_move_right():
     global grid_2048, score_2048
@@ -590,6 +612,7 @@ def game_2048_move_right():
         grid_2048[i].reverse()
         total_score += score
     score_2048 += total_score
+    add_new_tile_2048(grid_2048)
 
 def game_2048_move_up():
     global grid_2048, score_2048
@@ -602,6 +625,7 @@ def game_2048_move_up():
         for i in range(len(grid_2048)):
             grid_2048[i][j] = new_column[i]
     score_2048 += total_score
+    add_new_tile_2048(grid_2048)
 
 def game_2048_move_down():
     global grid_2048, score_2048
@@ -615,6 +639,7 @@ def game_2048_move_down():
         for i in range(len(grid_2048)):
             grid_2048[i][j] = new_column[len(grid_2048) - 1 - i]
     score_2048 += total_score
+    add_new_tile_2048(grid_2048)
 
 def game_2048_is_game_over():
     global grid_2048
