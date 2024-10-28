@@ -108,7 +108,7 @@ music_index = 0
 game_2048_selection = 'none'
 score_2048 = 0
 game_2048_active = False
-grid_2048 = initialize_grid_2048()
+grid_2048 = None
 
 def startup():
     global disp
