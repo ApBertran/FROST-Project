@@ -108,7 +108,7 @@ music_index = 0
 game_2048_selection = 'none'
 score_2048 = 0
 game_2048_active = False
-grid_2048 = None
+grid_2048 = initialize_grid_2048()
 
 def startup():
     global disp
@@ -458,8 +458,6 @@ def draw_2048_page():
     _, _, w, h = draw.textbbox((0, 0), "2048", font=SMALL_FONT)
     draw.text(((240-w)/2, (50-h)/2), "2048", font=SMALL_FONT, fill=WHITE)
 
-    create_image_2048(draw)
-
     if game_2048_selection == 'play':
         game_play_2048(draw)
     elif game_2048_selection == 'over':
@@ -498,7 +496,6 @@ def game_play_2048(draw):
     if game_2048_is_game_over(grid_2048):
         game_2048_active = False
         game_2048_selection = 'over'
-
 
 def game_over_2048(draw):
     global game_2048_selection
