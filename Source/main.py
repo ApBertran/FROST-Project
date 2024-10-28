@@ -522,8 +522,8 @@ def initialize_grid_2048(size=4):
     global grid_2048
 
     grid_2048 = [[0] * size for _ in range(size)]
-    add_new_tile_2048(grid_2048)
-    add_new_tile_2048(grid_2048)
+    add_new_tile_2048()
+    add_new_tile_2048()
     return grid_2048
 
 def add_new_tile_2048():
@@ -597,7 +597,7 @@ def game_2048_move_left():
         grid_2048[i], score = game_2048_slide_and_merge(grid_2048[i])
         total_score += score
     score_2048 += total_score
-    add_new_tile_2048(grid_2048)
+    add_new_tile_2048()
 
 def game_2048_move_right():
     global grid_2048, score_2048
@@ -609,7 +609,7 @@ def game_2048_move_right():
         grid_2048[i].reverse()
         total_score += score
     score_2048 += total_score
-    add_new_tile_2048(grid_2048)
+    add_new_tile_2048()
 
 def game_2048_move_up():
     global grid_2048, score_2048
@@ -622,7 +622,7 @@ def game_2048_move_up():
         for i in range(len(grid_2048)):
             grid_2048[i][j] = new_column[i]
     score_2048 += total_score
-    add_new_tile_2048(grid_2048)
+    add_new_tile_2048()
 
 def game_2048_move_down():
     global grid_2048, score_2048
@@ -636,7 +636,7 @@ def game_2048_move_down():
         for i in range(len(grid_2048)):
             grid_2048[i][j] = new_column[len(grid_2048) - 1 - i]
     score_2048 += total_score
-    add_new_tile_2048(grid_2048)
+    add_new_tile_2048()
 
 def game_2048_is_game_over():
     global grid_2048
