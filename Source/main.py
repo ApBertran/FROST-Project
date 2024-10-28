@@ -15,6 +15,7 @@ import smbus
 import struct
 import json
 import math
+import random
 
 # Raspberry Pi pin configuration:
 GPIO.setmode(GPIO.BCM)
@@ -66,6 +67,21 @@ LIGHT_BLUE = (173, 216, 230)    # Accent
 GRAY = (128, 128, 128)          # Neutral Background
 DARK_GRAY = (47, 79, 79)        # Contrast
 
+colors_2048 = {
+    0: (0, 0, 0),        # Empty cell color (black)
+    2: (179, 229, 252),  # Light Blue
+    4: (129, 212, 250),  # Brighter Sky Blue
+    8: (79, 195, 247),   # Sky Blue
+    16: (41, 182, 246),  # Mid-tone Blue
+    32: (3, 169, 244),   # Vivid Blue
+    64: (3, 155, 229),   # Intense Blue
+    128: (2, 136, 209),  # Deep Blue
+    256: (2, 119, 189),  # Strong Blue
+    512: (1, 87, 155),    # Dark Blue
+    1024: (1, 73, 124),   # Deep Ocean Blue
+    2048: (1, 58, 100)    # Dark Teal-Blue
+}
+
 # Prepare display
 disp = LCD_1inch28.LCD_1inch28()
 
@@ -74,6 +90,7 @@ home_page = Image.new("RGB", (disp.width, disp.height), BLACK)
 stopwatch_page = Image.new("RGB", (disp.width, disp.height), BLACK)
 music_page = Image.new("RGB", (disp.width, disp.height), BLACK)
 compass_page = Image.new("RGB", (disp.width, disp.height), BLACK)
+game_2048_page = Image.new("RGB", (disp.width, disp.height), BLACK)
 
 # Page Logic Variables
 current_page = 'home'
@@ -87,6 +104,11 @@ stopwatch_selection = 'none'
 
 music_selection = ['none', 'previous', 'toggle', 'next', 'decrease', 'increase']
 music_index = 0
+
+game_2048_selection = 'none'
+score_2048 = 0
+game_2048_active = False
+grid_2048 = None
 
 def startup():
     global disp
@@ -425,96 +447,201 @@ def music_display_info(draw):
         draw.text(((240-w)/2, (210-h)/2), "Retry Connection", font=MEDIUM_FONT, fill=WHITE)
         bluetooth_connection = False
 
-def draw_compass_page():
-    global compass_page
+def draw_2048_page():
+    global game_2048_page
 
     # Prepare default image
-    compass_page = draw_default_page()
-    draw = ImageDraw.Draw(compass_page)
+    game_2048_page = draw_default_page()
+    draw = ImageDraw.Draw(game_2048_page)
 
     # Draw header
-    _, _, w, h = draw.textbbox((0, 0), "Compass", font=SMALL_FONT)
-    draw.text(((240-w)/2, (50-h)/2), "Compass", font=SMALL_FONT, fill=WHITE)
+    _, _, w, h = draw.textbbox((0, 0), "2048", font=SMALL_FONT)
+    draw.text(((240-w)/2, (50-h)/2), "2048", font=SMALL_FONT, fill=WHITE)
 
-    mag_x, mag_y, mag_z = read_magnetometer()
-    acc_x, acc_y, acc_z = read_accelerometer()
+    create_image_2048(draw)
+
+    if game_2048_selection == 'play':
+        game_play_2048(draw)
+    elif game_2048_selection == 'over':
+        game_over_2048(draw)
+    else:
+        game_menu_2048(draw)
+
+def game_menu_2048(draw):
+    if game_2048_selection == 'menu':
+        fill_color = WHITE
+    else:
+        fill_color = DARK_GRAY
+
+    # Display High Score
+    _, _, w, h = draw.textbbox((0, 0), 'HIGH SCORE', font=MEDIUM_FONT)
+    draw.text(((240-w)/2, (120-h)/2), 'HIGH SCORE', font=MEDIUM_FONT, fill=fill_color)
+
+    # Play Button
+    _, _, w, h = draw.textbbox((0, 0), 'PLAY', font=LARGE_FONT)
+    draw.text(((240-w)/2, (240-h)/2), 'PLAY', font=LARGE_FONT, fill=fill_color)
+
+def game_play_2048(draw):
+    global game_2048_active, score_2048, grid_2048, game_2048_selection
+    if not game_2048_active:
+        grid_2048 = initialize_grid_2048()
+        score_2048 = 0
+        game_2048_active = True
+
+    # Display
+    create_image_2048(draw, score_2048)
+
+    # Exit Game
+    if GPIO.input(LEFT) + GPIO.input(RIGHT) + GPIO.input(BACK) + GPIO.input(OKAY) > 1:
+        game_2048_selection = 'none'
     
-    pitch, roll = calculate_pitch_and_roll(acc_x, acc_y, acc_z)
-    mag_x_comp, mag_y_comp = compensate_tilt(mag_x, mag_y, mag_z, pitch, roll)
-    
-    heading = calculate_tilt_compensated_heading(mag_x_comp, mag_y_comp)
-    draw_compass(draw, heading)
 
-def read_imu_i2c(addr, reg_l, reg_h):
-    low = imu_bus.read_byte_data(addr, reg_l)
-    high = imu_bus.read_byte_data(addr, reg_h)
-    val = (high << 8) + low
-    if val >= 32768:
-        val -= 65536
-    return val
 
-def read_magnetometer():
-    x = read_imu_i2c(MAG_ADDRESS, 0x28, 0x29)
-    y = read_imu_i2c(MAG_ADDRESS, 0x2A, 0x2B)
-    z = read_imu_i2c(MAG_ADDRESS, 0x2C, 0x2D)
-    return x, y, z
 
-def read_accelerometer():
-    x = read_imu_i2c(ACC_ADDRESS, 0x28, 0x29)
-    y = read_imu_i2c(ACC_ADDRESS, 0x2A, 0x2B)
-    z = read_imu_i2c(ACC_ADDRESS, 0x2C, 0x2D)
-    return x, y, z
+def game_over_2048(draw):
 
-def calculate_pitch_and_roll(acc_x, acc_y, acc_z):
-    roll = math.atan2(acc_y, acc_z) * 180 / math.pi
-    pitch = math.atan(-acc_x / math.sqrt(acc_y**2 + acc_z**2)) * 180 / math.pi
-    return pitch, roll
+def initialize_grid_2048(size=4):
+    global grid_2048
 
-def compensate_tilt(mag_x, mag_y, mag_z, pitch, roll):
-    pitch_rad = math.radians(pitch)
-    roll_rad = math.radians(roll)
-    mag_x_comp = mag_x * math.cos(pitch_rad) + mag_z * math.sin(pitch_rad)
-    mag_y_comp = mag_x * math.sin(roll_rad) * math.sin(pitch_rad) + mag_y * math.cos(roll_rad) - mag_z * math.sin(roll_rad) * math.cos(pitch_rad)
-    return mag_x_comp, mag_y_comp
+    grid_2048 = [[0] * size for _ in range(size)]
+    add_new_tile_2048(grid_2048)
+    add_new_tile_2048(grid_2048)
+    return grid_2048
 
-def calculate_tilt_compensated_heading(mag_x_comp, mag_y_comp):
-    heading = math.atan2(mag_y_comp, mag_x_comp) * 180 / math.pi
-    if heading < 0:
-        heading += 360
-    return heading
+def add_new_tile_2048():
+    global grid_2048
 
-def draw_compass(draw, heading):
-    cardinal_directions = {
-        "N": 0,
-        "E": 90,
-        "S": 180,
-        "W": 270
-    }
+    empty_tiles = [(i, j) for i in range(len(grid_2048)) for j in range(len(grid_2048[i])) if grid_2048[i][j] == 0]
+    if empty_tiles:
+        i, j = random.choice(empty_tiles)
+        grid_2048[i][j] = random.choice([2, 4])
 
-    # Rotate each cardinal direction based on the heading
-    for direction, angle in cardinal_directions.items():
-        # Adjust angle by the current heading
-        angle -= heading
-        angle_rad = math.radians(angle)
+def create_image_2048(draw):
+    global grid_2048, score_2048
 
-        # Calculate the position for the text
-        x = CENTER + int(CIRCLE_RADIUS * math.sin(angle_rad))
-        y = CENTER - int(CIRCLE_RADIUS * math.cos(angle_rad))
+    cell_size = 45  # Size of each cell
+    border_size = 5  # Size of the border
+    play_area_size = cell_size * 4  # 4 columns
+    width = play_area_size + 2 * border_size  # Include border
+    height = play_area_size + 2 * border_size  # Include border
 
-        # Draw the cardinal direction (centered text)
-        _, _, w, h = draw.textbbox((0, 0), direction, font=SMALL_FONT)
-        draw.text((x-w//2, y-h//2), direction, fill=WHITE, font=SMALL_FONT)
+    top_left_x = (disp.width - width) / 2
+    top_left_y = (disp.height - height) / 2
+
+    # Draw border around the play area
+    draw.rectangle([top_left_x, top_left_y, top_left_x + width, top_left_y + height], outline=WHITE, width=border_size, fill=BLACK) 
+
+    # Fill the grid area with black
+    # draw.rectangle(
+    #     [border_size * 2, border_size * 2, width, height], 
+    #     fill=(0, 0, 0)
+    # )
+
+    # Draw grid
+    for i in range(len(grid_2048)):
+        for j in range(len(grid_2048[i])):
+            value = grid_2048[i][j]
+            fill_color = colors_2048.get(value, (1, 58, 100)) # Default to 2048 color if not found in case someone goes past 2048
+            
+            cell_x1 = top_left_x + border_size + j * cell_size
+            cell_y1 = top_left_y + border_size + i * cell_size
+            cell_x2 = cell_x1 + cell_size
+            cell_y2 = cell_y1 + cell_size
+            draw.rectangle([cell_x1, cell_y1, cell_x2, cell_y2], fill=fill_color)
+
+            if value != 0:
+                text = str(value)
+                _, _, w, h = draw.textbbox((0, 0), text, font=SMALL_FONT)  # Get text bounding box
+                text_x = cell_x1 + (cell_size - w) / 2
+                text_y = cell_y1 + (cell_size - h) / 2
+                draw.text((text_x, text_y), text, fill=(255, 255, 255), font=SMALL_FONT)
+
+    # Display the score outside the border
+    draw.text((border_size + 5, height + border_size), f"Score: {score_2048}", fill=WHITE, font=SMALL_FONT)
+
+def game_2048_slide_and_merge(row):
+    new_row = [num for num in row if num != 0]
+    score = 0
+    i = 0
+    while i < len(new_row) - 1:
+        if new_row[i] == new_row[i + 1]:
+            new_row[i] *= 2
+            score += new_row[i]
+            del new_row[i + 1]
+        i += 1
+    return new_row + [0] * (len(row) - len(new_row)), score
+
+def game_2048_move_left():
+    global grid_2048, score_2048
+
+    total_score = 0
+    for i in range(len(grid_2048)):
+        grid_2048[i], score = game_2048_slide_and_merge(grid_2048[i])
+        total_score += score
+    score_2048 += total_score
+
+def game_2048_move_right():
+    global grid_2048, score_2048
+
+    total_score = 0
+    for i in range(len(grid_2048)):
+        grid_2048[i].reverse()
+        grid_2048[i], score = game_2048_slide_and_merge(grid_2048[i])
+        grid_2048[i].reverse()
+        total_score += score
+    score_2048 += total_score
+
+def game_2048_move_up():
+    global grid_2048, score_2048
+
+    total_score = 0
+    for j in range(len(grid_2048)):
+        column = [grid_2048[i][j] for i in range(len(grid_2048))]
+        new_column, score = game_2048_slide_and_merge(column)
+        total_score += score
+        for i in range(len(grid_2048)):
+            grid_2048[i][j] = new_column[i]
+    score_2048 += total_score
+
+def game_2048_move_down():
+    global grid_2048, score_2048
+
+    total_score = 0
+    for j in range(len(grid_2048)):
+        column = [grid_2048[i][j] for i in range(len(grid_2048))]
+        column.reverse()
+        new_column, score = game_2048_slide_and_merge(column)
+        total_score += score
+        for i in range(len(grid_2048)):
+            grid_2048[i][j] = new_column[len(grid_2048) - 1 - i]
+    score_2048 += total_score
+
+def game_2048_is_game_over():
+    global grid_2048
+
+    if any(0 in row for row in grid_2048):
+        return False
+    for i in range(len(grid_2048)):
+        for j in range(len(grid_2048[i])):
+            if (j + 1 < len(grid_2048[i]) and grid_2048[i][j] == grid_2048[i][j + 1]) or (i + 1 < len(grid_2048) and grid_2048[i][j] == grid_2048[i + 1][j]):
+                return False
+    return True
 
 def button_logic():
-    global left_pressed, right_pressed, okay_pressed, back_pressed, current_page, stopwatch_selection, stopwatch_state, music_index
+    global left_pressed, right_pressed, okay_pressed, back_pressed, current_page, stopwatch_selection, stopwatch_state, music_index, game_2048_selection
 
     # Handle LEFT inputs
     if GPIO.input(LEFT) and left_pressed == False:
         left_pressed = True
 
+        # 2048 Page
+        if current_page == '2048':
+            if game_2048_selection == 'play':
+                game_2048_move_left()
+
         # Home Page
-        if current_page == 'home':
-            current_page = 'compass'
+        elif current_page == 'home':
+            current_page = '2048'
 
         # Music Page
         elif current_page == 'music':
@@ -537,9 +664,12 @@ def button_logic():
     if GPIO.input(RIGHT) and right_pressed == False:
         right_pressed = True
 
-        # Compass Page
-        if current_page == 'compass':
-            current_page = 'home'
+        # 2048 Page
+        if current_page == '2048':
+            if game_2048_selection == 'none':
+                current_page = 'home'
+            elif game_2048_selection == 'play':
+                game_2048_move_right()
 
         # Home Page
         elif current_page == 'home':
@@ -558,8 +688,6 @@ def button_logic():
                 pass # NEXT PAGE
             elif stopwatch_selection == 'toggle':
                 stopwatch_selection = 'reset'
-        
-        
     
     elif not GPIO.input(RIGHT) and right_pressed == True:
         right_pressed = False
@@ -567,7 +695,18 @@ def button_logic():
     # Handle OKAY inputs
     if GPIO.input(OKAY) and okay_pressed == False:
         okay_pressed = True
-        if current_page == 'stopwatch':
+
+        # 2048 Page
+        if current_page == '2048':
+            if game_2048_selection == 'none':
+                game_2048_selection = 'menu'
+            elif game_2048_selection == 'menu':
+                game_2048_selection = 'play'
+            elif game_2048_selection == 'play':
+                game_2048_move_up()
+
+        # Stopwatch Page
+        elif current_page == 'stopwatch':
             if stopwatch_selection == 'none':
                 stopwatch_selection = 'toggle'
             elif stopwatch_selection == 'toggle':
@@ -575,6 +714,7 @@ def button_logic():
             elif stopwatch_selection == 'reset':
                 stopwatch_reset()
 
+        # Music Page
         elif current_page == 'music':
             if music_index == 0: # if == none
                 music_index += 2
@@ -594,8 +734,19 @@ def button_logic():
     # Handle BACK inputs
     if GPIO.input(BACK) and back_pressed == False:
         back_pressed = True
+
+        # 2048 Page
+        if current_page == '2048':
+            if game_2048_selection == 'menu':
+                game_2048_selection = 'none'
+            elif game_2048_selection == 'play':
+                game_2048_move_down()
+
+        # Stopwatch Page
         if current_page == 'stopwatch':
             stopwatch_selection = 'none'
+
+        # Music Page
         elif current_page == 'music':
             music_index = 0 # none
     
@@ -613,9 +764,9 @@ def display_image():
     elif current_page == 'music':
         draw_music_page()
         disp.ShowImage(music_page)
-    elif current_page == 'compass':
-        draw_compass_page()
-        disp.ShowImage(compass_page)
+    elif current_page == '2048':
+        draw_2048_page()
+        disp.ShowImage(game_2048_page)
 
 def main():
     global disp
